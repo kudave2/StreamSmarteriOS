@@ -11,11 +11,10 @@ struct ServiceEditSheet: View {
     @State private var renewalDate = Date()
     @State private var isActive = true
     
-    let allOptions = [
-        "Amazon Prime", "Apple TV", "Crunchyroll", "Discovery+", "Disney+", "ESPN+",
-        "HBO Max", "Hulu", "Netflix", "Paramount+", "Peacock", "Philo", 
-        "Britbox", "Acorn TV", "AMC+", "Starz"
-    ].sorted()
+    var isSharedOrFree: Bool {
+        let costVal = Double(cost) ?? 0.0
+        return costVal > 0.0 && costVal < 1.0
+    }
 
     var body: some View {
         NavigationStack {
@@ -23,22 +22,43 @@ struct ServiceEditSheet: View {
                 Section("Service Details") {
                     if service == nil {
                         Picker("Service Name", selection: $name) {
-                            ForEach(allOptions, id: \.self) { Text($0) }
+                            ForEach(viewModel.allServiceOptions, id: \.self) { Text($0) }
                         }
                     } else {
                         Text(service?.name ?? "").bold()
                     }
                     TextField("Monthly Cost ($)", text: $cost).keyboardType(.decimalPad)
+                        .onChange(of: cost) { oldValue, newValue in
+                            let costVal = Double(newValue) ?? 0.0
+                            if costVal > 0.0 && costVal < 1.0 {
+                                isActive = true
+                            }
+                        }
                 }
                 
                 Section("Dates & Status") {
                     DatePicker("Start Date", selection: $startDate, displayedComponents: .date)
                     DatePicker("Renewal Date", selection: $renewalDate, displayedComponents: .date)
-                    Toggle("Is Active", isOn: $isActive)
+                    
+                    if isSharedOrFree {
+                        HStack {
+                            Text("Status")
+                            Spacer()
+                            Text("Shared/Free")
+                                .foregroundColor(.gray)
+                        }
+                    } else {
+                        Toggle("Is Active", isOn: $isActive)
+                    }
                 }
             }
             .navigationTitle(service == nil ? "Add Subscription" : "Edit Subscription")
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         save()
@@ -53,17 +73,23 @@ struct ServiceEditSheet: View {
                     startDate = service.startDate
                     renewalDate = service.renewalDate
                     isActive = service.isActive
-                } else { name = allOptions.first ?? "" }
+                } else { name = viewModel.allServiceOptions.first ?? "" }
             }
         }
     }
     
     private func save() {
         let costVal = Double(cost) ?? 0.0
-        if let service {
-            viewModel.updateService(service, name: name, start: startDate, renew: renewalDate, cost: costVal, active: isActive)
+        let finalActive = isSharedOrFree ? true : isActive
+        
+        // Always update since all services are pre-created
+        if let service = service {
+            viewModel.updateService(service, name: name, start: startDate, renew: renewalDate, cost: costVal, active: finalActive)
         } else {
-            viewModel.addService(name: name, start: startDate, renew: renewalDate, cost: costVal, active: isActive)
+            // Find the service by name from the pre-created list and update it
+            if let existingService = viewModel.services.first(where: { $0.name == name }) {
+                viewModel.updateService(existingService, name: name, start: startDate, renew: renewalDate, cost: costVal, active: finalActive)
+            }
         }
     }
 }

@@ -1,0 +1,559 @@
+import Foundation
+import SwiftData
+import Observation
+import SwiftUI
+import UserNotifications
+import BackgroundTasks
+
+enum WatchlistTab {
+    case available, unavailable, watched, search
+}
+
+@Observable
+@MainActor
+final class WatchlistViewModel {
+    private var repository: StreamSmarterRepository?
+    
+    var allItems: [WatchlistItem] = []
+    var services: [StreamingService] = []
+    var user: User?
+    
+    var selectedTab: WatchlistTab = .available
+    var searchQuery: String = ""
+    
+    // For Add Flow
+    var showAddSheet: Bool = false
+    var searchResults: [TmdbSearchResult] = []
+    var isSearching: Bool = false
+    private let backgroundTaskID = "com.streamsmarter.refreshAirDates"
+    
+    func setup(repository: StreamSmarterRepository) {
+        self.repository = repository
+        refreshData()
+    }
+    
+    func refreshData() {
+        guard let repository else { return }
+        do {
+            self.allItems = try repository.fetchWatchlistItems()
+            self.services = try repository.fetchStreamingServices()
+            self.user = try repository.getUser()
+        } catch {}
+    }
+    
+    // MARK: - Partitioning & Sorting
+    
+    private var activeServiceNames: [String] {
+        let now = Date()
+        var names = services.filter { 
+            $0.isActive || 
+            $0.renewalDate > now || 
+            ($0.monthlyCost > 0.0 && $0.monthlyCost < 1.0) // Include Shared/Free services
+        }.map { $0.name }
+        
+        if let main = user?.mainViewingService { names.append(main) }
+        return Array(Set(names))
+    }
+    
+    var filteredAndSortedItems: [WatchlistItem] {
+        let topLevel = allItems.filter { $0.type == "movie" || $0.type == "tv" }
+        
+        let filtered = searchQuery.isEmpty ? topLevel : topLevel.filter { 
+            $0.title.localizedCaseInsensitiveContains(searchQuery) 
+        }
+        
+        let tenDaysAgo = Date().addingTimeInterval(-10 * 24 * 60 * 60)
+        
+        return filtered.sorted { (a, b) -> Bool in
+            // Boost logic: check for recent activity in episodes
+            let aActivity = a.type == "tv" ? (allItems.filter { $0.parentTmdbId == a.tmdbId && $0.type == "episode" && $0.status == "Watched" }.compactMap { $0.watchedDate }.max() ?? .distantPast) : .distantPast
+            let bActivity = b.type == "tv" ? (allItems.filter { $0.parentTmdbId == b.tmdbId && $0.type == "episode" && $0.status == "Watched" }.compactMap { $0.watchedDate }.max() ?? .distantPast) : .distantPast
+            
+            let aIsRecent = aActivity > tenDaysAgo
+            let bIsRecent = bActivity > tenDaysAgo
+            
+            if aIsRecent != bIsRecent { return aIsRecent }
+            if aIsRecent && bIsRecent { return aActivity > bActivity }
+            
+            if a.priority != b.priority { return a.priority < b.priority }
+            return a.title < b.title
+        }
+    }
+    
+    var availableReady: [WatchlistItem] {
+        filteredAndSortedItems.filter { $0.status == "Ready" && isAvailableOnActive($0) }
+    }
+    
+    var unavailableReady: [WatchlistItem] {
+        filteredAndSortedItems.filter { $0.status == "Ready" && !isAvailableOnActive($0) }
+    }
+    
+    var watchedItems: [WatchlistItem] {
+        filteredAndSortedItems.filter { $0.status == "Watched" }
+    }
+    
+    var currentTabItems: [WatchlistItem] {
+        switch selectedTab {
+        case .available: return availableReady
+        case .unavailable: return unavailableReady
+        case .watched: return watchedItems
+        case .search: return filteredAndSortedItems
+        }
+    }
+    
+    private func isAvailableOnActive(_ item: WatchlistItem) -> Bool {
+        guard let providers = item.providers else { return false }
+        return activeServiceNames.contains { isServiceMatch(serviceName: $0, providers: providers) }
+    }
+    
+    // MARK: - Hierarchy Logic
+    
+    func updateHierarchyStatus(_ item: WatchlistItem, newStatus: String) {
+        guard let repository else { return }
+        let now = Date()
+        
+        // Determine which service it was watched on
+        let watchedOn = newStatus == "Watched" ? determineWatchedOn(item) : nil
+
+        // 1. Update the item itself
+        item.status = newStatus
+        item.watchedDate = (newStatus == "Watched") ? (item.watchedDate ?? now) : nil
+        item.watchedOn = watchedOn
+        
+        // 2. Propagate DOWN (Show -> Seasons -> Episodes)
+        if item.type == "tv" || item.type == "season" {
+            let children = allItems.filter { 
+                $0.parentTmdbId == item.parentTmdbId && 
+                (item.type == "tv" ? true : $0.seasonNumber == item.seasonNumber) &&
+                $0.id != item.id
+            }
+            for child in children {
+                child.status = newStatus
+                child.watchedDate = (newStatus == "Watched") ? (child.watchedDate ?? now) : nil
+                child.watchedOn = (newStatus == "Watched") ? determineWatchedOn(child) : nil
+            }
+        }
+        
+        // 3. Propagate UP (Episode -> Season -> Show)
+        propagateStatusUp(for: item)
+        
+        try? repository.updateWatchlistItem(item)
+        refreshData()
+    }
+
+    private func propagateStatusUp(for item: WatchlistItem) {
+        if item.type == "episode" {
+            guard let season = allItems.first(where: { 
+                $0.type == "season" && $0.parentTmdbId == item.parentTmdbId && $0.seasonNumber == item.seasonNumber 
+            }) else { return }
+            
+            let siblings = allItems.filter { 
+                $0.type == "episode" && $0.parentTmdbId == item.parentTmdbId && $0.seasonNumber == item.seasonNumber 
+            }
+            
+            let nextStatus = siblings.allSatisfy { $0.status == "Watched" } ? "Watched" : "Ready"
+            if season.status != nextStatus {
+                season.status = nextStatus
+                season.watchedDate = (nextStatus == "Watched") ? Date() : nil
+                season.watchedOn = (nextStatus == "Watched") ? determineWatchedOn(season) : nil
+                propagateStatusUp(for: season)
+            }
+        } else if item.type == "season" {
+            guard let show = allItems.first(where: { 
+                $0.type == "tv" && $0.tmdbId == item.parentTmdbId 
+            }) else { return }
+            
+            let siblings = allItems.filter { 
+                $0.type == "season" && $0.parentTmdbId == item.parentTmdbId 
+            }
+            
+            let nextStatus = siblings.allSatisfy { $0.status == "Watched" } ? "Watched" : "Ready"
+            if show.status != nextStatus {
+                show.status = nextStatus
+                show.watchedDate = (nextStatus == "Watched") ? Date() : nil
+                show.watchedOn = (nextStatus == "Watched") ? determineWatchedOn(show) : nil
+            }
+        }
+    }
+
+    private func determineWatchedOn(_ item: WatchlistItem) -> String? {
+        let mainService = user?.mainViewingService
+        guard let providers = item.providers, providers != "None Found" else { return mainService }
+        
+        if let main = mainService, isServiceMatch(serviceName: main, providers: providers) {
+            return main
+        }
+        
+        let activeServices = services.filter { $0.isActive }.sorted { $0.monthlyCost < $1.monthlyCost }
+        for service in activeServices {
+            if isServiceMatch(serviceName: service.name, providers: providers) {
+                return service.name
+            }
+        }
+        return mainService
+    }
+    
+    func deleteHierarchy(_ item: WatchlistItem) {
+        guard let repository else { return }
+        do {
+            if item.type == "tv" {
+                // Delete all seasons and episodes first
+                if let id = item.tmdbId {
+                    try repository.deleteWatchlistByParentId(id)
+                }
+                // Delete the show itself
+                try repository.deleteWatchlistItem(item)
+            } else if item.type == "season" {
+                // Delete all episodes in this season
+                try repository.deleteWatchlistSeason(parentTmdbId: item.parentTmdbId, seasonNumber: item.seasonNumber)
+                // Delete the season itself
+                try repository.deleteWatchlistItem(item)
+            } else {
+                // Delete just the episode or movie
+                try repository.deleteWatchlistItem(item)
+            }
+            refreshData()
+        } catch {}
+    }
+    
+    // MARK: - Search & Add
+    
+    func searchTmdb(_ query: String) async {
+        guard let repository, let apiKey = user?.tmdbApiKey else { return }
+        isSearching = true
+        searchResults = await repository.searchTmdb(query: query, apiKey: apiKey)
+        isSearching = false
+    }
+    
+    func addItemsToWatchlist(selections: [WatchlistSelection], priority: Int) async {
+        guard repository != nil else { return }
+        
+        for selection in selections {
+            await addWatchlistItemInternal(
+                result: selection.tmdbResult,
+                type: selection.itemType,
+                priority: priority,
+                seasonNumber: selection.seasonNumber,
+                episodeNumber: selection.episodeNumber
+            )
+        }
+        refreshData()
+    }
+    
+    private func addWatchlistItemInternal(
+        result: TmdbSearchResult,
+        type: String,
+        priority: Int,
+        seasonNumber: Int? = nil,
+        episodeNumber: Int? = nil
+    ) async {
+        guard let repository, let apiKey = user?.tmdbApiKey else { return }
+        
+        let providersString = await fetchProviders(for: result)
+        let releaseDate = result.releaseDate ?? result.firstAirDate
+        let year = releaseDate?.prefix(4).description
+        
+        // Check for existing item (update if found)
+        let existingItem = allItems.first { item in
+            item.type == type &&
+            item.parentTmdbId == result.id && // Use result.id as parent for all
+            item.seasonNumber == (seasonNumber ?? 0) &&
+            item.episodeNumber == (episodeNumber ?? 0)
+        }
+        
+        if let existingItem = existingItem {
+            // Update existing item with potentially new details
+            var updatedOverview: String? = nil
+            var updatedRuntime: Int? = nil
+            var updatedTitle = result.title ?? result.name ?? existingItem.title
+            
+            if type == "movie" {
+                let details = await repository.getMovieDetails(id: result.id, apiKey: apiKey)
+                updatedOverview = details?.overview
+                updatedRuntime = details?.runtime
+            } else if type == "tv" {
+                let details = await repository.getTvDetails(id: result.id, apiKey: apiKey)
+                updatedOverview = details?.overview
+                updatedRuntime = details?.episodeRunTime?.first
+            } else if type == "season", let sn = seasonNumber {
+                let sDetails = await repository.getTvSeasonDetails(tvId: result.id, seasonNumber: sn, apiKey: apiKey)
+                updatedOverview = sDetails?.overview
+                updatedTitle = sDetails?.name ?? updatedTitle
+            } else if type == "episode", let sn = seasonNumber, let en = episodeNumber {
+                let sDetails = await repository.getTvSeasonDetails(tvId: result.id, seasonNumber: sn, apiKey: apiKey)
+                let epDetails = sDetails?.episodes?.first(where: { $0.episodeNumber == en })
+                updatedOverview = epDetails?.overview
+                let fallbackRuntime = (await repository.getTvDetails(id: result.id, apiKey: apiKey))?.episodeRunTime?.first
+                updatedRuntime = epDetails?.runtime ?? fallbackRuntime
+                updatedTitle = epDetails?.name ?? updatedTitle
+            }
+            
+            existingItem.title = updatedTitle
+            existingItem.overview = updatedOverview ?? existingItem.overview
+            existingItem.runtime = updatedRuntime ?? existingItem.runtime
+            try? repository.updateWatchlistItem(existingItem)
+            return
+        }
+        
+        // If adding a season or episode, ensure parent TV show exists
+        if type == "season" || type == "episode" {
+            let parentShowExists = allItems.contains(where: { $0.type == "tv" && $0.tmdbId == result.id })
+            if !parentShowExists {
+                let tvDetails = await repository.getTvDetails(id: result.id, apiKey: apiKey)
+                let parentShow = WatchlistItem(
+                    title: result.name ?? result.title ?? "Unknown Show",
+                    type: "tv",
+                    priority: priority,
+                    tmdbId: result.id,
+                    parentTmdbId: result.id,
+                    providers: providersString,
+                    releaseYear: year,
+                    runtime: tvDetails?.episodeRunTime?.first,
+                    totalSeasons: tvDetails?.numberOfSeasons,
+                    overview: tvDetails?.overview
+                )
+                try? repository.insertWatchlistItem(parentShow)
+            }
+        }
+        
+        // If adding an episode, ensure parent season exists
+        if type == "episode", let sn = seasonNumber {
+            let seasonExists = allItems.contains(where: { 
+                $0.type == "season" && $0.parentTmdbId == result.id && $0.seasonNumber == sn 
+            })
+            if !seasonExists {
+                let sDetails = await repository.getTvSeasonDetails(tvId: result.id, seasonNumber: sn, apiKey: apiKey)
+                let parentSeason = WatchlistItem(
+                    title: sDetails?.name ?? "Season \(sn)",
+                    type: "season",
+                    priority: priority,
+                    parentTmdbId: result.id,
+                    providers: providersString,
+                    releaseYear: sDetails?.airDate?.prefix(4).description,
+                    seasonNumber: sn,
+                    totalEpisodesInCurrentSeason: sDetails?.episodeCount,
+                    overview: sDetails?.overview
+                )
+                try? repository.insertWatchlistItem(parentSeason)
+            }
+        }
+        
+        // Create the new item
+        var itemTitle = result.title ?? result.name ?? "Unknown"
+        var runtime: Int? = nil
+        var totalSeasons: Int? = nil
+        var epsInSeason: Int? = nil
+        var overview: String? = nil
+        
+        if type == "movie" {
+            let details = await repository.getMovieDetails(id: result.id, apiKey: apiKey)
+            runtime = details?.runtime
+            overview = details?.overview
+        } else if type == "tv" {
+            let details = await repository.getTvDetails(id: result.id, apiKey: apiKey)
+            runtime = details?.episodeRunTime?.first
+            totalSeasons = details?.numberOfSeasons
+            overview = details?.overview
+        } else if type == "season", let sn = seasonNumber {
+            let sDetails = await repository.getTvSeasonDetails(tvId: result.id, seasonNumber: sn, apiKey: apiKey)
+            itemTitle = sDetails?.name ?? "Season \(sn)"
+            epsInSeason = sDetails?.episodeCount
+            overview = sDetails?.overview
+        } else if type == "episode", let sn = seasonNumber, let en = episodeNumber {
+            let sDetails = await repository.getTvSeasonDetails(tvId: result.id, seasonNumber: sn, apiKey: apiKey)
+            let epDetails = sDetails?.episodes?.first(where: { $0.episodeNumber == en })
+            itemTitle = epDetails?.name ?? "Episode \(en)"
+            let fallbackRuntime = (await repository.getTvDetails(id: result.id, apiKey: apiKey))?.episodeRunTime?.first
+            runtime = epDetails?.runtime ?? fallbackRuntime
+            overview = epDetails?.overview
+        }
+        
+        let newItem = WatchlistItem(
+            title: itemTitle,
+            type: type,
+            priority: priority,
+            tmdbId: (type == "tv" || type == "movie") ? result.id : nil, // Only top-level items get their own TMDB ID
+            parentTmdbId: result.id, // Parent is always the TV show's TMDB ID for seasons/episodes
+            providers: providersString,
+            releaseYear: (type == "tv" || type == "movie") ? year : nil,
+            runtime: runtime,
+            seasonNumber: seasonNumber ?? 0,
+            episodeNumber: episodeNumber ?? 0,
+            totalSeasons: totalSeasons,
+            totalEpisodesInCurrentSeason: epsInSeason,
+            overview: overview
+        )
+        try? repository.insertWatchlistItem(newItem)
+    }
+    
+    // MARK: - Background Processing
+    
+    /// Schedules the next background refresh task
+    func scheduleBackgroundRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: backgroundTaskID)
+        // Try to run the refresh at least once every 24 hours
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 24 * 60 * 60)
+        
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            print("Could not schedule background refresh: \(error)")
+        }
+    }
+    
+    /// The logic that runs when the OS wakes the app up
+    func performBackgroundRefresh(task: BGAppRefreshTask) async {
+        // Schedule the next refresh before starting this one
+        scheduleBackgroundRefresh()
+        
+        task.expirationHandler = {
+            // Clean up if the OS kills the task
+        }
+        
+        guard let repository, let apiKey = user?.tmdbApiKey else {
+            task.setTaskCompleted(success: false)
+            return
+        }
+
+        // Only refresh shows that are "Ready" and explicitly flagged by the user
+        let flaggedShows = allItems.filter { item in
+            item.type == "tv" && item.status == "Ready" && item.isFlaggedForNotifications
+        }
+        
+        var updatedCount = 0
+        for show in flaggedShows {
+            guard let showID = show.tmdbId else { continue }
+            
+            if let details = await repository.getTvDetails(id: showID, apiKey: apiKey) {
+                if let nextEp = details.nextEpisodeToAir, let airDateStr = nextEp.airDate {
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-MM-dd"
+                    
+                    if let airDate = formatter.date(from: airDateStr), airDate > Date() {
+                        // Found a future date! Schedule notifications.
+                        var msg = "\(show.title): Season \(nextEp.seasonNumber), Episode \(nextEp.episodeNumber)"
+                        if let title = nextEp.name, !title.isEmpty {
+                            msg += ": \(title)"
+                        }
+                        scheduleAirDateNotifications(for: msg, airDate: airDate)
+                        updatedCount += 1
+                    }
+                }
+            }
+        }
+        
+        print("Background refresh completed. Updated \(updatedCount) shows.")
+        task.setTaskCompleted(success: true)
+    }
+    
+    func toggleNotificationFlag(for item: WatchlistItem) {
+        guard let repository, item.type == "tv" else { return }
+        
+        item.isFlaggedForNotifications.toggle()
+        
+        if item.isFlaggedForNotifications {
+            // If turning ON, check for current air date and schedule immediately
+            Task {
+                if let showID = item.tmdbId, let details = await repository.getTvDetails(id: showID, apiKey: user?.tmdbApiKey ?? "") {
+                    if let nextEp = details.nextEpisodeToAir, let airDateStr = nextEp.airDate {
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "yyyy-MM-dd"
+                        if let airDate = formatter.date(from: airDateStr) {
+                            var msg = "\(item.title): Season \(nextEp.seasonNumber), Episode \(nextEp.episodeNumber)"
+                            if let title = nextEp.name, !title.isEmpty {
+                                msg += ": \(title)"
+                            }
+                            scheduleAirDateNotifications(for: msg, airDate: airDate)
+                        }
+                    }
+                }
+            }
+        } else {
+            // If turning OFF, cancel pending notifications for this show
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["\(item.title)-1day-alert", "\(item.title)-2day-alert"])
+        }
+        
+        try? repository.updateWatchlistItem(item)
+        refreshData()
+    }
+    
+    // MARK: - Notifications
+    
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                print("Notification permission error: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func scheduleAirDateNotifications(for message: String, airDate: Date) {
+        let center = UNUserNotificationCenter.current()
+        
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateFormat = "MM-dd-yyyy"
+        let formattedDate = displayFormatter.string(from: airDate)
+        
+        let scheduleAction = { (daysBefore: Int) in
+            // Calculate notification date (e.g., 9:00 AM 1 or 2 days before)
+            guard let notifyDate = Calendar.current.date(byAdding: .day, value: -daysBefore, to: airDate) else { return }
+            
+            // Ensure we aren't scheduling a notification in the past
+            if notifyDate > Date() {
+                let content = UNMutableNotificationContent()
+                content.title = "Upcoming Release!"
+                content.body = "\(message) is releasing in \(daysBefore) day\(daysBefore > 1 ? "s" : "")!"
+                content.body = "\(message) is releasing on \(formattedDate) (\(daysBefore) day\(daysBefore > 1 ? "s" : "")!)"
+                content.sound = .default
+                
+                // Create a trigger for 9:00 AM on that day
+                var components = Calendar.current.dateComponents([.year, .month, .day], from: notifyDate)
+                components.hour = 9
+                components.minute = 0
+                
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                let identifier = "\(message)-\(daysBefore)day-alert"
+                let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+                
+                center.add(request)
+            }
+        }
+        
+        // Schedule both alerts
+        scheduleAction(2)
+        scheduleAction(1)
+    }
+    
+    func getTvDetails(id: Int) async -> TmdbTvDetails? {
+        guard let repository, let apiKey = user?.tmdbApiKey else { return nil }
+        return await repository.getTvDetails(id: id, apiKey: apiKey)
+    }
+    
+    func getTvSeasonDetails(tvId: Int, seasonNumber: Int) async -> TmdbSeason? {
+        guard let repository, let apiKey = user?.tmdbApiKey else { return nil }
+        return await repository.getTvSeasonDetails(tvId: tvId, seasonNumber: seasonNumber, apiKey: apiKey)
+    }
+    
+    private func fetchProviders(for result: TmdbSearchResult) async -> String? {
+        guard let repository, let apiKey = user?.tmdbApiKey else { return nil }
+        let list = await repository.getWatchProviders(type: result.mediaType ?? "movie", id: result.id, apiKey: apiKey)
+        return list.isEmpty ? nil : list.joined(separator: ", ")
+    }
+    
+    // Re-implemented normalization from Kotlin
+    func isServiceMatch(serviceName: String, providers: String) -> Bool {
+        let pLower = providers.lowercased()
+        let sLower = serviceName.lowercased()
+        
+        let noise = "(\\+|plus|video|\\s|\\.|-|')"
+        let pRaw = pLower.replacingOccurrences(of: noise, with: "", options: .regularExpression)
+        let sRaw = sLower.replacingOccurrences(of: noise, with: "", options: .regularExpression)
+        
+        if sRaw.count > 2 && pRaw.contains(sRaw) { return true }
+        
+        if sRaw.contains("disney") {
+            if pRaw.contains("hulu") || pRaw.contains("espn") { return true }
+        }
+        return false
+    }
+}

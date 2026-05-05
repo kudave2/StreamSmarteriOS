@@ -1,6 +1,5 @@
 import SwiftUI
-
-private let accentYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
+import SwiftData
 
 private let mainServiceOptions = [
     "YouTube TV", "DirecTV Stream", "Hulu + Live TV",
@@ -11,38 +10,68 @@ struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = ProfileViewModel()
     @FocusState private var focusedField: ProfileField?
+    @State private var overrideToastMessage: String? = nil
 
     enum ProfileField { case tmdbKey, hours, limit, cost }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                tmdbKeySection
-                if !viewModel.isPremiumUser { goPremiumButton }
-                mainServiceSection
-                mainServiceCostSection
-                streamingHoursSection
-                concurrentLimitSection
-                if viewModel.activeServicesCount > (Int(viewModel.concurrentSubscriptionLimit) ?? 2) {
-                    warningCard
+        VStack(spacing: 0) {
+            Text("Profile")
+                .font(.largeTitle.bold())
+                .foregroundColor(.brandBlue)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    tmdbKeySection
+                    if !viewModel.isPremiumUser { goPremiumButton }
+                    mainServiceSection
+                    mainServiceCostSection
+                    streamingHoursSection
+                    concurrentLimitSection
+                    if viewModel.activeServicesCount > (Int(viewModel.concurrentSubscriptionLimit) ?? 2) {
+                        warningCard
+                    }
+                    if viewModel.hasChanges { updateProfileButton }
+                    Divider().background(Color.gray.opacity(0.4))
+                    backupSection
                 }
-                if viewModel.hasChanges { updateProfileButton }
-                Divider().background(Color.gray.opacity(0.4))
-                backupSection
+                .padding()
             }
-            .padding()
         }
-        .background(Color.black.ignoresSafeArea())
-        .navigationTitle("Profile")
-        .navigationBarTitleDisplayMode(.large)
-        .preferredColorScheme(.dark)
+        .background(Color.black)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.light, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                StreamSmarterLogoView(
+                    iconSize: 22,
+                    fontSize: 20,
+                    taglineSize: 6,
+                    statusMessage: overrideToastMessage,
+                    onLogoClick: {
+                        #if DEBUG
+                        viewModel.toggleOverridePremium()
+                        let isNow = viewModel.user?.isOverridePremium ?? false
+                        withAnimation { overrideToastMessage = isNow ? "Premium Override: ON" : "Premium Override: OFF" }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation { overrideToastMessage = nil }
+                        }
+                        #endif
+                    }
+                )
+            }
+        }
         .onAppear {
             viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
         }
-        .alert("About TMDB API Keys", isPresented: $viewModel.showApiKeyInfo) {
-            Button("OK") {}
-        } message: {
-            Text("TMDB (The Movie Database) is a free, community-built movie and TV database.\n\n1. Create a free account at themoviedb.org\n2. Go to Settings → API\n3. Request an API key (Developer)\n4. Copy the API Key (v3 auth)")
+        .sheet(isPresented: $viewModel.showApiKeyInfo) {
+            TmdbApiKeyInfoSheet()
         }
         .alert("Error", isPresented: $viewModel.showValidationError) {
             Button("OK") {}
@@ -68,7 +97,7 @@ struct ProfileView: View {
                 Spacer()
                 Button { viewModel.showApiKeyInfo = true } label: {
                     Image(systemName: "info.circle")
-                        .foregroundColor(accentYellow)
+                        .foregroundColor(.accentYellow)
                 }
             }
             profileTextField(
@@ -84,7 +113,7 @@ struct ProfileView: View {
                 destination: URL(string: "https://www.themoviedb.org/settings/api")!
             )
             .font(.caption)
-            .foregroundColor(accentYellow)
+            .foregroundColor(.accentYellow)
         }
     }
 
@@ -105,7 +134,7 @@ struct ProfileView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(accentYellow)
+            .background(Color.accentYellow)
             .cornerRadius(8)
         }
     }
@@ -130,7 +159,7 @@ struct ProfileView: View {
                         Image(systemName: "chevron.down").foregroundColor(.gray)
                     }
                     .padding(12)
-                    .background(Color(white: 0.12))
+                    .background(Color.retroGray)
                     .cornerRadius(8)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.5), lineWidth: 1.5))
                 }
@@ -225,7 +254,7 @@ struct ProfileView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(accentYellow)
+            .background(Color.accentYellow)
             .cornerRadius(8)
         }
     }
@@ -237,11 +266,13 @@ struct ProfileView: View {
             Text("Data Backup & Restore")
                 .foregroundColor(.white)
                 .font(.headline)
-            outlineButton(title: "Export Backup") {
-                // BackupManager.exportDatabase — future sprint
-            }
-            outlineButton(title: "Import Backup") {
-                // BackupManager.importDatabase — future sprint
+            HStack(spacing: 12) {
+                outlineButton(title: "Export Backup") {
+                    // BackupManager.exportDatabase — future sprint
+                }
+                outlineButton(title: "Import Backup") {
+                    // BackupManager.importDatabase — future sprint
+                }
             }
             Text("Backups are AES-GCM encrypted and tied to this device's hardware security module. They cannot be modified or read outside of this app.")
                 .font(.caption)
@@ -262,11 +293,11 @@ struct ProfileView: View {
             .foregroundColor(.white)
             .keyboardType(keyboardType)
             .padding(12)
-            .background(Color(white: 0.12))
+            .background(Color.retroGray)
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(focusedField == field ? accentYellow : Color.gray.opacity(0.5), lineWidth: 1.5)
+                    .stroke(focusedField == field ? Color.accentYellow : Color.gray.opacity(0.5), lineWidth: 1.5)
             )
             .focused($focusedField, equals: field)
     }
@@ -289,16 +320,53 @@ struct ProfileView: View {
             Text(title)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .foregroundColor(accentYellow)
-                .background(Color(white: 0.12))
+                .foregroundColor(.accentYellow)
+                .background(Color.retroGray)
                 .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(accentYellow, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.accentYellow, lineWidth: 1))
+        }
+    }
+}
+
+private struct TmdbApiKeyInfoSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("TMDB (The Movie Database) is a free, community-built movie and TV database.")
+                    .foregroundColor(.white)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 0) {
+                        Text("1. ")
+                            .foregroundColor(Color(white: 0.8))
+                        Link("Create a free TMDB account", destination: URL(string: "https://www.themoviedb.org/signup")!)
+                            .foregroundColor(.blue)
+                            .underline(true, color: .blue)
+                    }
+                    Text("2. Go to Settings → API")
+                    Text("3. Request an API key (Developer)")
+                    Text("4. Copy the API Key (v3 auth)")
+                }
+                .foregroundColor(Color(white: 0.8))
+
+                Spacer()
+            }
+            .padding()
+            .background(Color.black)
+            .navigationTitle("About TMDB API Keys")
+            .navigationBarTitleDisplayMode(.inline)
+            .preferredColorScheme(.dark)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.foregroundColor(.accentYellow)
+                }
+            }
         }
     }
 }
 
 #Preview {
-    NavigationStack {
-        ProfileView()
-    }
+    ProfileView()
 }

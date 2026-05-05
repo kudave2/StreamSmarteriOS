@@ -25,6 +25,7 @@ final class WatchlistItem {
     var overview: String?
     var watchedDate: Date?
     var watchedOn: String?
+    var isFlaggedForNotifications: Bool = false
 
     init(
         title: String,
@@ -48,7 +49,8 @@ final class WatchlistItem {
         nextEpisodeAirDate: String? = nil,
         overview: String? = nil,
         watchedDate: Date? = nil,
-        watchedOn: String? = nil
+        watchedOn: String? = nil,
+        isFlaggedForNotifications: Bool = false
     ) {
         self.title = title
         self.type = type
@@ -72,6 +74,7 @@ final class WatchlistItem {
         self.overview = overview
         self.watchedDate = watchedDate
         self.watchedOn = watchedOn
+        self.isFlaggedForNotifications = isFlaggedForNotifications
     }
 
     // Mirrors Android's unique constraint: (parentTmdbId, type, seasonNumber, episodeNumber)

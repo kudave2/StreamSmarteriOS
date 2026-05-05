@@ -1,19 +1,27 @@
 import SwiftUI
 import SwiftData
 
-private let accentYellow = Color(red: 1.0, green: 0.84, blue: 0.0)
-private let retroGray = Color(white: 0.12)
-
 struct SubscriptionsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = SubscriptionsViewModel()
+    @State private var analysisViewModel = AnalysisViewModel()
+    @State private var showWebsiteDialog = false
     
     var body: some View {
+        @Bindable var viewModel = viewModel
         VStack(alignment: .leading, spacing: 0) {
+            Text("Subscriptions")
+                .font(.largeTitle.bold())
+                .foregroundColor(.brandBlue)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
+            
             VStack(alignment: .leading, spacing: 4) {
-                Text("Current Monthly Cost: $\(String(format: "%.2f", viewModel.activeTotalCost))")
+                Text("Current Monthly Cost: \(viewModel.activeTotalCost.formatted(.currency(code: "USD")))")
                     .font(.headline)
-                    .foregroundColor(accentYellow)
+                    .foregroundColor(.accentYellow)
                 
                 Text("Any service you \"share\" or is free, set cost < $0.99 for better analysis.")
                     .font(.caption2)
@@ -51,7 +59,8 @@ struct SubscriptionsView: View {
                     ServiceRow(
                         service: service,
                         watchlist: viewModel.watchlist,
-                        matcher: viewModel.isServiceMatch
+                        matcher: viewModel.isServiceMatch,
+                        analysisViewModel: analysisViewModel
                     ) {
                         viewModel.serviceToEdit = service
                     }
@@ -64,33 +73,83 @@ struct SubscriptionsView: View {
             .listStyle(.plain)
         }
         .background(Color.black)
-        .navigationTitle("Subscriptions")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.light, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { viewModel.showAddSheet = true } label: {
-                    Image(systemName: "plus")
-                        .foregroundColor(accentYellow)
-                }
+            ToolbarItem(placement: .principal) {
+                StreamSmarterLogoView(
+                    iconSize: 22,
+                    fontSize: 20,
+                    taglineSize: 6
+                )
             }
         }
         .onAppear {
             viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
-        }
-        .sheet(isPresented: $viewModel.showAddSheet) {
-            ServiceEditSheet(viewModel: viewModel)
+            analysisViewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
         }
         .sheet(item: $viewModel.serviceToEdit) { service in
             ServiceEditSheet(viewModel: viewModel, service: service)
         }
-        .alert("Visit Website?", item: $viewModel.serviceForUrlRedirect) { service in
-            Button("Yes, Go There") {
-                if let urlString = viewModel.serviceUrls[service.name], let url = URL(string: urlString) {
-                    UIApplication.shared.open(url)
+        .onChange(of: viewModel.serviceForUrlRedirect) { oldValue, newValue in
+            showWebsiteDialog = newValue != nil
+        }
+        .overlay(alignment: .center) {
+            if showWebsiteDialog, let service = viewModel.serviceForUrlRedirect {
+                ZStack {
+                    Color.black.opacity(0.5)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            showWebsiteDialog = false
+                            viewModel.serviceForUrlRedirect = nil
+                        }
+                    
+                    VStack(spacing: 16) {
+                        Text("Visit Website?")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        
+                        Text("You've changed the status of \(service.name). Would you like to visit their site?")
+                            .font(.body)
+                            .foregroundColor(.gray)
+                            .multilineTextAlignment(.center)
+                        
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                showWebsiteDialog = false
+                                viewModel.serviceForUrlRedirect = nil
+                            }) {
+                                Text("Cancel")
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .foregroundColor(.accentYellow)
+                                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentYellow, lineWidth: 1))
+                            }
+                            
+                            Button(action: {
+                                if let urlString = viewModel.serviceUrls[service.name], let url = URL(string: urlString) {
+                                    UIApplication.shared.open(url)
+                                }
+                                showWebsiteDialog = false
+                                viewModel.serviceForUrlRedirect = nil
+                            }) {
+                                Text("Visit Site")
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .foregroundColor(.black)
+                                    .background(Color.accentYellow)
+                                    .cornerRadius(6)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color.retroGray)
+                    .cornerRadius(12)
+                    .padding()
                 }
             }
-            Button("No, Thanks", role: .cancel) { }
-        } message: { service in
-            Text("You've changed the status of \(service.name). Would you like to visit their site?")
         }
     }
     
@@ -98,6 +157,46 @@ struct SubscriptionsView: View {
         for index in offsets {
             viewModel.deleteService(viewModel.sortedServices[index])
         }
+    }
+}
+
+#Preview("Subscriptions View") {
+    do {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Schema([User.self, WatchlistItem.self, StreamingService.self, AppNotification.self]), configurations: config)
+
+        // Add a sample user
+        let user = User(mainViewingService: "Netflix", mainViewingServiceCost: 15.99, isPremium: true)
+        container.mainContext.insert(user)
+
+        // Add some sample streaming services
+        let netflix = StreamingService(name: "Netflix", startDate: Date().addingTimeInterval(-365*24*60*60), renewalDate: Date().addingTimeInterval(30*24*60*60), monthlyCost: 15.99, isActive: true)
+        container.mainContext.insert(netflix)
+
+        let hulu = StreamingService(name: "Hulu", startDate: Date().addingTimeInterval(-180*24*60*60), renewalDate: Date().addingTimeInterval(15*24*60*60), monthlyCost: 12.99, isActive: true)
+        container.mainContext.insert(hulu)
+
+        let disneyPlus = StreamingService(name: "Disney+", startDate: Date().addingTimeInterval(-90*24*60*60), renewalDate: Date().addingTimeInterval(-5*24*60*60), monthlyCost: 7.99, isActive: true) // Expired service
+        container.mainContext.insert(disneyPlus)
+
+        let prime = StreamingService(name: "Amazon Prime", startDate: Date().addingTimeInterval(-60*24*60*60), renewalDate: Date().addingTimeInterval(60*24*60*60), monthlyCost: 0.50, isActive: true) // Shared/Free
+        container.mainContext.insert(prime)
+        
+        let max = StreamingService(name: "HBO Max", startDate: Date().addingTimeInterval(-200*24*60*60), renewalDate: Date().addingTimeInterval(45*24*60*60), monthlyCost: 16.99, isActive: false) // Suspended service
+        container.mainContext.insert(max)
+
+        // Add some sample watchlist items
+        let watchlist1 = WatchlistItem(title: "The Crown", type: "tv", priority: 1, providers: "Netflix")
+        container.mainContext.insert(watchlist1)
+        let watchlist2 = WatchlistItem(title: "Mandalorian", type: "tv", priority: 2, providers: "Disney+")
+        container.mainContext.insert(watchlist2)
+        let watchlist3 = WatchlistItem(title: "Reacher", type: "tv", priority: 3, providers: "Amazon Prime")
+        container.mainContext.insert(watchlist3)
+
+        return SubscriptionsView()
+            .modelContainer(container)
+    } catch {
+        fatalError("Failed to create ModelContainer for preview: \(error)")
     }
 }
 
@@ -109,7 +208,7 @@ struct MainServiceRow: View {
     let matcher: (String, String?) -> Bool
     
     var availableItems: [WatchlistItem] {
-        watchlist.filter { 
+        watchlist.filter {
             ($0.type == "tv" || $0.type == "movie") && matcher(name, $0.providers)
         }.sorted(by: { $0.priority < $1.priority })
     }
@@ -119,16 +218,16 @@ struct MainServiceRow: View {
             HStack {
                 VStack(alignment: .leading) {
                     Text(name).font(.headline).bold().foregroundColor(.white)
-                    Text("Main Service").font(.caption).foregroundColor(accentYellow)
+                    Text("Main Service").font(.caption).foregroundColor(.accentYellow)
                 }
                 Spacer()
-                Text("$\(String(format: "%.2f", cost))").foregroundColor(accentYellow)
+                Text(cost.formatted(.currency(code: "USD"))).foregroundColor(.accentYellow)
             }
         }
         .padding()
-        .background(retroGray)
+        .background(Color.retroGray)
         .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(accentYellow, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.accentYellow, lineWidth: 1))
     }
 }
 
@@ -136,32 +235,63 @@ struct ServiceRow: View {
     let service: StreamingService
     let watchlist: [WatchlistItem]
     let matcher: (String, String?) -> Bool
+    let analysisViewModel: AnalysisViewModel
     let onEdit: () -> Void
+    
+    var isNotActivated: Bool {
+        return service.monthlyCost == 0.0 && !service.isActive
+    }
+    
+    var isSharedOrFree: Bool {
+        return service.monthlyCost > 0.0 && service.monthlyCost < 1.0
+    }
+    
+    var statusText: String {
+        if isNotActivated { return "Not Activated" }
+        if isSharedOrFree {
+            return "Shared/Free"
+        }
+        return service.isActive ? "Active" : "Suspended"
+    }
+    
+    var statusColor: Color {
+        if isNotActivated { return .gray }
+        if isSharedOrFree {
+            return .orange
+        }
+        return service.isActive ? .green : .red
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 VStack(alignment: .leading) {
                     Text(service.name).font(.headline).bold()
-                        .foregroundColor(service.isActive ? .white : .gray)
-                    Text(service.isActive ? "Active" : "Suspended")
-                        .font(.caption).foregroundColor(service.isActive ? .green : .red)
+                        .foregroundColor(service.isActive || isSharedOrFree ? .white : .gray)
+                    Text(statusText)
+                        .font(.caption).foregroundColor(statusColor)
                 }
                 Spacer()
                 Button(action: onEdit) {
-                    Image(systemName: "pencil.circle").foregroundColor(accentYellow)
+                    Image(systemName: "pencil.circle").foregroundColor(.accentYellow)
                 }
             }
             
             HStack {
-                Text("$\(String(format: "%.2f", service.monthlyCost))").foregroundColor(accentYellow)
+                if isNotActivated {
+                    let mktCost = analysisViewModel.getProjectedCost(for: service)
+                    Text("Mkt: \(mktCost.formatted(.currency(code: "USD")))")
+                        .foregroundColor(.gray)
+                } else {
+                    Text(service.monthlyCost.formatted(.currency(code: "USD"))).foregroundColor(.accentYellow)
+                }
                 Spacer()
-                Text("Renews: \(service.renewalDate, style: .date)").font(.caption).foregroundColor(.cyan)
+                Text("Renews: \(service.renewalDate, style: .date)").font(.caption).foregroundColor(.brandBlue)
             }
         }
         .padding()
-        .background(service.isActive ? retroGray : Color(white: 0.08))
+        .background((service.isActive || isSharedOrFree) ? Color.retroGray : Color(white: 0.08))
         .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(service.isActive ? accentYellow : Color.gray.opacity(0.3), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke((service.isActive || isSharedOrFree) ? Color.accentYellow : Color.gray.opacity(0.3), lineWidth: 1))
     }
 }

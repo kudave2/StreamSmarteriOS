@@ -12,9 +12,14 @@ final class SubscriptionsViewModel {
     var watchlist: [WatchlistItem] = []
     var user: User?
     
-    var showAddSheet: Bool = false
     var serviceToEdit: StreamingService?
     var serviceForUrlRedirect: StreamingService?
+    
+    let allServiceOptions = [
+        "Amazon Prime", "Apple TV", "Crunchyroll", "Discovery+", "Disney+", "ESPN+",
+        "HBO Max", "Hulu", "Netflix", "Paramount+", "Peacock", "Philo", 
+        "Britbox", "Acorn TV", "AMC+", "Starz"
+    ].sorted()
     
     let serviceUrls = [
         "Amazon Prime": "https://www.amazon.com/gp/video/settings",
@@ -32,6 +37,38 @@ final class SubscriptionsViewModel {
     func setup(repository: StreamSmarterRepository) {
         self.repository = repository
         refreshData()
+        ensureAllServicesExist()
+        checkAndRotateServiceDates()
+    }
+    
+    private func ensureAllServicesExist() {
+        guard let repository else { return }
+        let today = Date()
+        
+        for serviceName in allServiceOptions {
+            // Check if service already exists
+            if !services.contains(where: { $0.name == serviceName }) {
+                // Create with defaults: inactive, $0 cost, current date for both dates
+                let newService = StreamingService(name: serviceName, startDate: today, renewalDate: today, monthlyCost: 0.0, isActive: false)
+                try? repository.insertStreamingService(newService)
+            }
+        }
+    }
+
+    func checkAndRotateServiceDates() {
+        guard let repository else { return }
+        let now = Date()
+        let calendar = Calendar.current
+        
+        for service in services where service.isActive {
+            if now >= service.renewalDate {
+                let newStart = service.renewalDate
+                let nextRenewal = calendar.date(byAdding: .month, value: 1, to: service.renewalDate) ?? service.renewalDate
+                service.startDate = newStart
+                service.renewalDate = nextRenewal
+                try? repository.updateStreamingService(service)
+            }
+        }
     }
 
     func refreshData() {
@@ -74,6 +111,18 @@ final class SubscriptionsViewModel {
         service.renewalDate = renew
         service.monthlyCost = cost
         
+        // Enforcement: Check concurrent limit for non-premium users
+        if active != service.isActive && active == true {
+            let activeCount = services.filter { $0.isActive }.count
+            let limit = user?.concurrentSubscriptionLimit ?? 2
+            let isPremium = user?.isPremium ?? false || user?.isOverridePremium ?? false
+            
+            if !isPremium && activeCount >= limit {
+                // TODO: Trigger upsell UI/Alert here
+                return 
+            }
+        }
+
         if service.isActive != active {
             service.isActive = active
             self.serviceForUrlRedirect = service
@@ -87,6 +136,7 @@ final class SubscriptionsViewModel {
         try? repository?.deleteStreamingService(service)
         refreshData()
     }
+
 
     func isServiceMatch(serviceName: String, providers: String?) -> Bool {
         guard let providers = providers?.lowercased() else { return false }

@@ -15,6 +15,7 @@ struct StreamSmarterLogoView: View {
 
     private let brandingNavy  = Color(red: 0.0,   green: 0.2,   blue: 0.4)   // #003366
     private let brandingGreen = Color(red: 0.0,   green: 0.667, blue: 0.4)   // #00AA66
+    private let magenta       = Color(red: 1.0,   green: 0.0,   blue: 1.0)
 
     var body: some View {
         VStack(spacing: 2) {
@@ -24,23 +25,23 @@ struct StreamSmarterLogoView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: iconSize, height: iconSize)
-                    Color.magenta
+                    magenta
                         .opacity(flashOpacity)
                         .frame(width: iconSize, height: iconSize)
                 }
 
                 Text("Stream")
                     .font(.system(size: fontSize, weight: .bold))
-                    .foregroundColor(flashOpacity > 0 ? .magenta : brandingNavy)
+                    .foregroundColor(flashOpacity > 0 ? magenta : brandingNavy)
 
                 Text("$marter")
                     .font(.system(size: fontSize, weight: .bold))
-                    .foregroundColor(flashOpacity > 0 ? .magenta : brandingGreen)
+                    .foregroundColor(flashOpacity > 0 ? magenta : brandingGreen)
             }
 
             Text("TRACK * WATCH * SAVE")
                 .font(.system(size: taglineSize, weight: .bold))
-                .foregroundColor(flashOpacity > 0 ? .magenta : brandingNavy)
+                .foregroundColor(flashOpacity > 0 ? magenta : brandingNavy)
                 .tracking(4)
 
             if let message = statusMessage {
@@ -85,7 +86,7 @@ struct StreamSmarterLogoView: View {
 
 #Preview {
     ZStack {
-        Color.black.ignoresSafeArea()
+        Color.black
         StreamSmarterLogoView()
     }
 }

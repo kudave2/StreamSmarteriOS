@@ -2,8 +2,11 @@ import Foundation
 import SwiftData
 
 @Model
-final class StreamingService {
-    var name: String
+final class StreamingService: Identifiable {
+    // Adding id for SwiftUI compatibility
+    @Attribute(.unique) var name: String
+    var id: String { name } 
+    
     var startDate: Date
     var renewalDate: Date
     var monthlyCost: Double = 0.0

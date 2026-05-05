@@ -95,6 +95,11 @@ final class StreamSmarterRepository {
         return try modelContext.fetch(FetchDescriptor<StreamingService>())
     }
 
+    func fetchStreamingService(byName name: String) throws -> [StreamingService] {
+        let descriptor = FetchDescriptor<StreamingService>(predicate: #Predicate { $0.name == name })
+        return try modelContext.fetch(descriptor)
+    }
+
     func insertStreamingService(_ service: StreamingService) throws {
         modelContext.insert(service)
         try modelContext.save()
@@ -188,7 +193,7 @@ final class StreamSmarterRepository {
     func getWatchProviders(type: String, id: Int, apiKey: String) async -> [String] {
         do {
             let response = try await tmdbService.getWatchProviders(type: type, id: id, apiKey: apiKey)
-            var providers = response.results?["US"]?.flatrate?.map(\.providerName) ?? []
+            let providers = response.results?["US"]?.flatrate?.map(\.providerName) ?? []
             return Array(Set(providers))
         } catch {
             return []

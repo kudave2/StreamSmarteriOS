@@ -102,6 +102,14 @@ final class ProfileViewModel {
         isValidating = false
     }
 
+    func toggleOverridePremium() {
+        guard let repository else { return }
+        do {
+            try repository.updateUser { user in user.isOverridePremium.toggle() }
+            self.user = try repository.getUser()
+        } catch {}
+    }
+
     func attemptPremiumUpgrade() async {
         let key = tmdbApiKey.trimmingCharacters(in: .whitespaces)
         guard !key.isEmpty else {
