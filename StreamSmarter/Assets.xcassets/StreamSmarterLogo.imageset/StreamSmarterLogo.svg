@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108">
+  <g transform="translate(14, 14) scale(0.42, 0.42)">
+    <!-- Play button (navy) -->
+    <path d="M130,140 L70,180 L70,100 Z" fill="#003366"/>
+    <!-- Growth arrow (green) -->
+    <path d="M40,120 L80,80 L120,110 L160,40 L180,60" stroke-width="12" stroke="#00AA66" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Shield (green) -->
+    <path d="M150,110 Q150,140 170,150 Q190,140 190,110 L170,100 Z" fill="#00AA66"/>
+    <!-- Dollar sign on shield (white) -->
+    <path d="M165,120 Q170,115 175,120 L175,130 Q170,135 165,130 M170,115 L170,135" stroke-width="2" stroke="#FFFFFF" fill="none"/>
+  </g>
+</svg>

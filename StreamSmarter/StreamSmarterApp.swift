@@ -1,10 +1,3 @@
-//
-//  StreamSmarterApp.swift
-//  StreamSmarter
-//
-//  Created by David Bush on 4/27/26.
-//
-
 import SwiftUI
 import SwiftData
 
@@ -12,7 +5,10 @@ import SwiftData
 struct StreamSmarterApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            User.self,
+            WatchlistItem.self,
+            StreamingService.self,
+            AppNotification.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
