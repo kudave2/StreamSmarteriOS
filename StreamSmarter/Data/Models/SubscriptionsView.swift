@@ -60,10 +60,15 @@ struct SubscriptionsView: View {
                         service: service,
                         watchlist: viewModel.watchlist,
                         matcher: viewModel.isServiceMatch,
-                        analysisViewModel: analysisViewModel
-                    ) {
-                        viewModel.serviceToEdit = service
-                    }
+                        analysisViewModel: analysisViewModel,
+                        marketServices: viewModel.marketServices,
+                        onEdit: {
+                            viewModel.serviceToEdit = service
+                        },
+                        onDelete: {
+                            viewModel.deleteService(service)
+                        }
+                    )
                 }
                 .onDelete(perform: deleteService)
                 .listRowBackground(Color.clear)
@@ -236,7 +241,11 @@ struct ServiceRow: View {
     let watchlist: [WatchlistItem]
     let matcher: (String, String?) -> Bool
     let analysisViewModel: AnalysisViewModel
+    let marketServices: Set<String>
     let onEdit: () -> Void
+    let onDelete: () -> Void
+    
+    @State private var showDeleteConfirmation = false
     
     var isNotActivated: Bool {
         return service.monthlyCost == 0.0 && !service.isActive
@@ -271,10 +280,21 @@ struct ServiceRow: View {
                     Text(statusText)
                         .font(.caption).foregroundColor(statusColor)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    onEdit()
+                }
                 Spacer()
+                if !marketServices.contains(service.name) {
+                    Button(action: { showDeleteConfirmation = true }) {
+                        Image(systemName: "trash.circle").foregroundColor(.red)
+                    }
+                    .buttonStyle(.plain)
+                }
                 Button(action: onEdit) {
                     Image(systemName: "pencil.circle").foregroundColor(.accentYellow)
                 }
+                .buttonStyle(.plain)
             }
             
             HStack {
@@ -293,5 +313,13 @@ struct ServiceRow: View {
         .background((service.isActive || isSharedOrFree) ? Color.retroGray : Color(white: 0.08))
         .cornerRadius(8)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke((service.isActive || isSharedOrFree) ? Color.accentYellow : Color.gray.opacity(0.3), lineWidth: 1))
+        .alert("Delete Service", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                onDelete()
+            }
+        } message: {
+            Text("Are you sure you want to delete \(service.name)? This action cannot be undone.")
+        }
     }
 }

@@ -15,6 +15,8 @@ final class SubscriptionsViewModel {
     var serviceToEdit: StreamingService?
     var serviceForUrlRedirect: StreamingService?
     
+    var marketServices: Set<String> = []
+    
     let allServiceOptions = [
         "Amazon Prime", "Apple TV", "Crunchyroll", "Discovery+", "Disney+", "ESPN+",
         "HBO Max", "Hulu", "Netflix", "Paramount+", "Peacock", "Philo", 
@@ -39,6 +41,9 @@ final class SubscriptionsViewModel {
         refreshData()
         ensureAllServicesExist()
         checkAndRotateServiceDates()
+        Task {
+            await syncMarketServices()
+        }
     }
     
     private func ensureAllServicesExist() {
@@ -71,6 +76,31 @@ final class SubscriptionsViewModel {
         }
     }
 
+    private func syncMarketServices() async {
+        let urlString = "https://raw.githubusercontent.com/kudave2/StreamSmarterData/main/market_costs.csv"
+        guard let url = URL(string: urlString) else { return }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            guard let csvString = String(data: data, encoding: .utf8) else { return }
+            
+            let lines = csvString.components(separatedBy: .newlines)
+            var servicesSet: Set<String> = []
+            
+            for line in lines where !line.isEmpty {
+                let columns = line.components(separatedBy: ",")
+                if columns.count >= 1 {
+                    let serviceName = columns[0].trimmingCharacters(in: .whitespaces)
+                    servicesSet.insert(serviceName)
+                }
+            }
+            
+            self.marketServices = servicesSet
+        } catch {
+            // Handle error, perhaps set to empty or log
+        }
+    }
+
     func refreshData() {
         guard let repository else { return }
         do {
@@ -81,7 +111,8 @@ final class SubscriptionsViewModel {
     }
 
     var sortedServices: [StreamingService] {
-        services.sorted { s1, s2 in
+        let mainServiceName = user?.mainViewingService
+        return services.filter { $0.name != mainServiceName }.sorted { s1, s2 in
             if s1.isActive != s2.isActive { return s1.isActive && !s2.isActive }
             if s1.renewalDate != s2.renewalDate { return s1.renewalDate > s2.renewalDate }
             return s1.name < s2.name
@@ -133,6 +164,8 @@ final class SubscriptionsViewModel {
     }
     
     func deleteService(_ service: StreamingService) {
+        // Only allow deletion if the service is not in the market costs CSV
+        guard !marketServices.contains(service.name) else { return }
         try? repository?.deleteStreamingService(service)
         refreshData()
     }

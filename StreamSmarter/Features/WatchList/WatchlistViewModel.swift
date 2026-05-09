@@ -30,6 +30,12 @@ final class WatchlistViewModel {
     func setup(repository: StreamSmarterRepository) {
         self.repository = repository
         refreshData()
+        if let apiKey = user?.tmdbApiKey, !apiKey.isEmpty {
+            Task {
+                await repository.backfillAirDates(apiKey: apiKey)
+                refreshData()
+            }
+        }
     }
     
     func refreshData() {
@@ -193,6 +199,24 @@ final class WatchlistViewModel {
         return mainService
     }
     
+    private func nextReadyEpisodeText(for show: WatchlistItem) -> String? {
+        guard let showId = show.tmdbId else { return nil }
+        let readyEpisodes = allItems.filter {
+            $0.type == "episode" &&
+            $0.parentTmdbId == showId &&
+            $0.status == "Ready"
+        }
+        let nextEpisode = readyEpisodes.sorted {
+            if $0.seasonNumber != $1.seasonNumber {
+                return $0.seasonNumber < $1.seasonNumber
+            }
+            return $0.episodeNumber < $1.episodeNumber
+        }.first
+        guard let episode = nextEpisode else { return nil }
+        let episodeTitlePart = episode.title.isEmpty ? "" : ": \(episode.title)"
+        return "S\(episode.seasonNumber)E\(episode.episodeNumber)\(episodeTitlePart)"
+    }
+    
     func deleteHierarchy(_ item: WatchlistItem) {
         guard let repository else { return }
         do {
@@ -308,6 +332,7 @@ final class WatchlistViewModel {
                     parentTmdbId: result.id,
                     providers: providersString,
                     releaseYear: year,
+                    airDate: result.airDate,
                     runtime: tvDetails?.episodeRunTime?.first,
                     totalSeasons: tvDetails?.numberOfSeasons,
                     overview: tvDetails?.overview
@@ -330,6 +355,7 @@ final class WatchlistViewModel {
                     parentTmdbId: result.id,
                     providers: providersString,
                     releaseYear: sDetails?.airDate?.prefix(4).description,
+                    airDate: sDetails?.parsedAirDate,
                     seasonNumber: sn,
                     totalEpisodesInCurrentSeason: sDetails?.episodeCount,
                     overview: sDetails?.overview
@@ -368,6 +394,19 @@ final class WatchlistViewModel {
             overview = epDetails?.overview
         }
         
+        var airDate: Date? = nil
+        
+        if type == "movie" || type == "tv" {
+            airDate = result.airDate
+        } else if type == "season", let sn = seasonNumber {
+            let sDetails = await repository.getTvSeasonDetails(tvId: result.id, seasonNumber: sn, apiKey: apiKey)
+            airDate = sDetails?.parsedAirDate
+        } else if type == "episode", let sn = seasonNumber, let en = episodeNumber {
+            let sDetails = await repository.getTvSeasonDetails(tvId: result.id, seasonNumber: sn, apiKey: apiKey)
+            let epDetails = sDetails?.episodes?.first(where: { $0.episodeNumber == en })
+            airDate = epDetails?.parsedAirDate
+        }
+        
         let newItem = WatchlistItem(
             title: itemTitle,
             type: type,
@@ -376,6 +415,7 @@ final class WatchlistViewModel {
             parentTmdbId: result.id, // Parent is always the TV show's TMDB ID for seasons/episodes
             providers: providersString,
             releaseYear: (type == "tv" || type == "movie") ? year : nil,
+            airDate: airDate,
             runtime: runtime,
             seasonNumber: seasonNumber ?? 0,
             episodeNumber: episodeNumber ?? 0,
@@ -431,9 +471,15 @@ final class WatchlistViewModel {
                     
                     if let airDate = formatter.date(from: airDateStr), airDate > Date() {
                         // Found a future date! Schedule notifications.
-                        var msg = "\(show.title): Season \(nextEp.seasonNumber), Episode \(nextEp.episodeNumber)"
-                        if let title = nextEp.name, !title.isEmpty {
-                            msg += ": \(title)"
+                        let nextReadyEpisodeText = nextReadyEpisodeText(for: show)
+                        var msg: String
+                        if let readyText = nextReadyEpisodeText {
+                            msg = "\(show.title): Next ready episode is \(readyText)"
+                        } else {
+                            msg = "\(show.title): Season \(nextEp.seasonNumber), Episode \(nextEp.episodeNumber)"
+                            if let title = nextEp.name, !title.isEmpty {
+                                msg += ": \(title)"
+                            }
                         }
                         scheduleAirDateNotifications(for: msg, airDate: airDate)
                         updatedCount += 1
@@ -459,9 +505,15 @@ final class WatchlistViewModel {
                         let formatter = DateFormatter()
                         formatter.dateFormat = "yyyy-MM-dd"
                         if let airDate = formatter.date(from: airDateStr) {
-                            var msg = "\(item.title): Season \(nextEp.seasonNumber), Episode \(nextEp.episodeNumber)"
-                            if let title = nextEp.name, !title.isEmpty {
-                                msg += ": \(title)"
+                            let nextReadyEpisodeText = nextReadyEpisodeText(for: item)
+                            var msg: String
+                            if let readyText = nextReadyEpisodeText {
+                                msg = "\(item.title): Next ready episode is \(readyText)"
+                            } else {
+                                msg = "\(item.title): Season \(nextEp.seasonNumber), Episode \(nextEp.episodeNumber)"
+                                if let title = nextEp.name, !title.isEmpty {
+                                    msg += ": \(title)"
+                                }
                             }
                             scheduleAirDateNotifications(for: msg, airDate: airDate)
                         }
@@ -470,7 +522,7 @@ final class WatchlistViewModel {
             }
         } else {
             // If turning OFF, cancel pending notifications for this show
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["\(item.title)-1day-alert", "\(item.title)-2day-alert"])
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["\(item.title)-1day-alert", "\(item.title)-2day-alert", "\(item.title)-5day-alert"])
         }
         
         try? repository.updateWatchlistItem(item)
@@ -519,7 +571,8 @@ final class WatchlistViewModel {
             }
         }
         
-        // Schedule both alerts
+        // Schedule advance alerts
+        scheduleAction(5)
         scheduleAction(2)
         scheduleAction(1)
     }

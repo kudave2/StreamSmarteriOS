@@ -200,6 +200,38 @@ final class StreamSmarterRepository {
         }
     }
 
+    func backfillAirDates(apiKey: String) async {
+        do {
+            let items = try fetchWatchlistItems()
+            for item in items where item.airDate == nil {
+                var airDate: Date? = nil
+                if item.type == "movie", let id = item.tmdbId {
+                    let details = await getMovieDetails(id: id, apiKey: apiKey)
+                    airDate = details?.airDate
+                } else if item.type == "tv", let id = item.tmdbId {
+                    let details = await getTvDetails(id: id, apiKey: apiKey)
+                    airDate = details?.airDate
+                } else if item.type == "season", item.seasonNumber > 0 {
+                    let seasonNum = item.seasonNumber
+                    let details = await getTvSeasonDetails(tvId: item.parentTmdbId, seasonNumber: seasonNum, apiKey: apiKey)
+                    airDate = details?.parsedAirDate
+                } else if item.type == "episode", item.seasonNumber > 0, item.episodeNumber > 0 {
+                    let seasonNum = item.seasonNumber
+                    let episodeNum = item.episodeNumber
+                    let seasonDetails = await getTvSeasonDetails(tvId: item.parentTmdbId, seasonNumber: seasonNum, apiKey: apiKey)
+                    let epDetails = seasonDetails?.episodes?.first(where: { $0.episodeNumber == episodeNum })
+                    airDate = epDetails?.parsedAirDate
+                }
+                if let airDate = airDate {
+                    item.airDate = airDate
+                    try updateWatchlistItem(item)
+                }
+            }
+        } catch {
+            // Handle error if needed
+        }
+    }
+
     // MARK: - Watchmode Networking
 
     func searchWatchmode(apiKey: String, searchValue: String) async -> [WatchmodeSearchResult] {

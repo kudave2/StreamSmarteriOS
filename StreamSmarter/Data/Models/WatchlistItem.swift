@@ -13,6 +13,7 @@ final class WatchlistItem {
     var parentTmdbId: Int = 0
     var providers: String?
     var releaseYear: String?
+    var airDate: Date?
     var runtime: Int?
     var seasonNumber: Int = 0
     var episodeNumber: Int = 0
@@ -38,6 +39,7 @@ final class WatchlistItem {
         parentTmdbId: Int = 0,
         providers: String? = nil,
         releaseYear: String? = nil,
+        airDate: Date? = nil,
         runtime: Int? = nil,
         seasonNumber: Int = 0,
         episodeNumber: Int = 0,
@@ -62,6 +64,7 @@ final class WatchlistItem {
         self.parentTmdbId = parentTmdbId
         self.providers = providers
         self.releaseYear = releaseYear
+        self.airDate = airDate
         self.runtime = runtime
         self.seasonNumber = seasonNumber
         self.episodeNumber = episodeNumber

@@ -1,5 +1,11 @@
 import Foundation
 
+private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd"
+    return formatter
+}()
+
 // MARK: - Response Models
 
 struct TmdbSearchResponse: Codable {
@@ -29,6 +35,12 @@ struct TmdbSearchResult: Codable {
 
     var displayTitle: String { title ?? name ?? "" }
     var displayDate: String { releaseDate ?? firstAirDate ?? "" }
+    var airDate: Date? {
+        if let dateString = releaseDate ?? firstAirDate {
+            return dateFormatter.date(from: dateString)
+        }
+        return nil
+    }
 }
 
 struct TmdbMovieDetails: Codable {
@@ -43,6 +55,10 @@ struct TmdbMovieDetails: Codable {
         case releaseDate = "release_date"
         case overview
     }
+
+    var airDate: Date? {
+        releaseDate.flatMap { dateFormatter.date(from: $0) }
+    }
 }
 
 struct TmdbTvDetails: Codable {
@@ -50,6 +66,7 @@ struct TmdbTvDetails: Codable {
     let episodeRunTime: [Int]?
     let numberOfEpisodes: Int?
     let numberOfSeasons: Int?
+    let firstAirDate: String?
     let seasons: [TmdbSeason]?
     let nextEpisodeToAir: TmdbEpisode?
     let overview: String?
@@ -59,9 +76,14 @@ struct TmdbTvDetails: Codable {
         case episodeRunTime = "episode_run_time"
         case numberOfEpisodes = "number_of_episodes"
         case numberOfSeasons = "number_of_seasons"
+        case firstAirDate = "first_air_date"
         case seasons
         case nextEpisodeToAir = "next_episode_to_air"
         case overview
+    }
+
+    var airDate: Date? {
+        firstAirDate.flatMap { dateFormatter.date(from: $0) }
     }
 }
 
@@ -83,6 +105,10 @@ struct TmdbSeason: Codable {
         case episodes
         case overview
     }
+
+    var parsedAirDate: Date? {
+        airDate.flatMap { dateFormatter.date(from: $0) }
+    }
 }
 
 struct TmdbEpisode: Codable {
@@ -102,6 +128,10 @@ struct TmdbEpisode: Codable {
         case airDate = "air_date"
         case runtime
         case overview
+    }
+
+    var parsedAirDate: Date? {
+        airDate.flatMap { dateFormatter.date(from: $0) }
     }
 }
 

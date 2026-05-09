@@ -96,13 +96,13 @@ struct WatchlistView: View {
             }
             .presentationDetents([.height(250)])
         }
-        .confirmationDialog("Delete Item?", isPresented: Binding(get: { showDeleteConfirmation != nil }, set: { if !$0 { showDeleteConfirmation = nil } }), titleVisibility: .visible) {
+        .alert("Delete Item?", isPresented: Binding(get: { showDeleteConfirmation != nil }, set: { if !$0 { showDeleteConfirmation = nil } })) {
+            Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 if let item = showDeleteConfirmation {
                     viewModel.deleteHierarchy(item)
                 }
             }
-            Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will permanently remove '\(showDeleteConfirmation?.title ?? "")' and its related content.")
         }
@@ -261,6 +261,13 @@ struct HierarchicalWatchlistRow: View {
                         .foregroundColor(.blue)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                
+                if let airDate = item.airDate {
+                    Text("Air Date: \(airDate.formatted(date: .abbreviated, time: .omitted))")
+                        .font(.caption2)
+                        .foregroundColor(.black.opacity(0.7))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             
             if isExpanded {
@@ -326,6 +333,11 @@ struct SeasonRow: View {
                             if totalMins > 0 {
                                 Text("Time Left: \(totalMins / 60)h \(totalMins % 60)m")
                                     .font(.caption2).foregroundColor(.darkGray)
+                            }
+                            
+                            if let airDate = season.airDate {
+                                Text("Air Date: \(airDate.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(.caption2).foregroundColor(.black.opacity(0.7))
                             }
                         }
                         Spacer()
@@ -431,6 +443,13 @@ struct EpisodeRow: View {
             
             if isExpanded, let overview = episode.overview {
                 Text(overview).font(.caption2).foregroundColor(.darkGray)
+            }
+            
+            if let airDate = episode.airDate {
+                Text("Air Date: \(airDate.formatted(date: .abbreviated, time: .omitted))")
+                    .font(.caption2)
+                    .foregroundColor(.black.opacity(0.7))
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(4)
