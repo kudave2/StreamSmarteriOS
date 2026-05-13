@@ -3,9 +3,9 @@ import SwiftUI
 /// Reusable logo component — faithful port of StreamSmarterLogo composable in RetroTVComponents.kt.
 /// Tap 10 times within 500ms between taps to trigger onLogoClick with a magenta flash.
 struct StreamSmarterLogoView: View {
-    var iconSize: CGFloat = 32
-    var fontSize: CGFloat = 32
-    var taglineSize: CGFloat = 8
+    var iconSize: CGFloat = 64
+    var fontSize: CGFloat = 64
+    var taglineSize: CGFloat = 24
     var statusMessage: String? = nil
     var onLogoClick: () -> Void = {}
 
@@ -18,41 +18,43 @@ struct StreamSmarterLogoView: View {
     private let magenta       = Color(red: 1.0,   green: 0.0,   blue: 1.0)
 
     var body: some View {
-        VStack(spacing: 2) {
-            HStack(spacing: 4) {
-                ZStack {
-                    Image("StreamSmarterLogo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: iconSize, height: iconSize)
-                    magenta
-                        .opacity(flashOpacity)
-                        .frame(width: iconSize, height: iconSize)
+        Button(action: handleTap) {
+            VStack(spacing: 2) {
+                HStack(spacing: 0) { // Changed spacing from 4 to 0
+                    ZStack {
+                        Image("StreamSmarterLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: iconSize, height: iconSize)
+                        magenta
+                            .opacity(flashOpacity)
+                            .frame(width: iconSize, height: iconSize)
+                            .allowsHitTesting(false)
+                    }
+
+                    Text("Stream")
+                        .font(.system(size: fontSize, weight: .bold))
+                        .foregroundColor(flashOpacity > 0 ? magenta : brandingNavy)
+
+                    Text("$marter")
+                        .font(.system(size: fontSize, weight: .bold))
+                        .foregroundColor(flashOpacity > 0 ? magenta : brandingGreen)
                 }
 
-                Text("Stream")
-                    .font(.system(size: fontSize, weight: .bold))
+                Text("TRACK * WATCH * SAVE")
+                    .font(.system(size: taglineSize, weight: .bold))
                     .foregroundColor(flashOpacity > 0 ? magenta : brandingNavy)
+                    .tracking(4)
 
-                Text("$marter")
-                    .font(.system(size: fontSize, weight: .bold))
-                    .foregroundColor(flashOpacity > 0 ? magenta : brandingGreen)
-            }
-
-            Text("TRACK * WATCH * SAVE")
-                .font(.system(size: taglineSize, weight: .bold))
-                .foregroundColor(flashOpacity > 0 ? magenta : brandingNavy)
-                .tracking(4)
-
-            if let message = statusMessage {
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                    .transition(.opacity)
+                if let message = statusMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .transition(.opacity)
+                }
             }
         }
-        .contentShape(Rectangle())
-        .onTapGesture { handleTap() }
+        .buttonStyle(.plain)
     }
 
     private func handleTap() {

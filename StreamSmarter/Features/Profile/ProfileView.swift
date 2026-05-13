@@ -16,13 +16,23 @@ struct ProfileView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("Profile")
-                .font(.largeTitle.bold())
-                .foregroundColor(.brandBlue)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .padding(.top, 12)
-                .padding(.bottom, 4)
+            HStack(alignment: .center, spacing: 12) {
+                Text("Profile")
+                    .font(.largeTitle.bold())
+                    .foregroundColor(.brandBlue)
+
+                Spacer()
+                NavigationLink {
+                    HelpView()
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.title2)
+                        .foregroundColor(.red)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
@@ -43,30 +53,24 @@ struct ProfileView: View {
             }
         }
         .background(Color.black)
+        .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.white, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.light, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 StreamSmarterLogoView(
-                    iconSize: 22,
-                    fontSize: 20,
-                    taglineSize: 6,
-                    statusMessage: overrideToastMessage,
+                    iconSize: 32,
+                    fontSize: 32,
+                    taglineSize: 10,
                     onLogoClick: {
-                        #if DEBUG
                         viewModel.toggleOverridePremium()
-                        let isNow = viewModel.user?.isOverridePremium ?? false
-                        withAnimation { overrideToastMessage = isNow ? "Premium Override: ON" : "Premium Override: OFF" }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                            withAnimation { overrideToastMessage = nil }
-                        }
-                        #endif
                     }
                 )
             }
         }
+        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.light, for: .navigationBar)
         .onAppear {
             viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
         }
@@ -79,7 +83,9 @@ struct ProfileView: View {
             Text(viewModel.validationErrorMessage)
         }
         .alert("Go Premium!", isPresented: $viewModel.showPremiumDialog) {
-            Button("Purchase") { /* StoreKit 2 purchase — future sprint */ }
+            Button("Purchase") {
+                viewModel.toggleOverridePremium()
+            }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Unlock premium features including main viewing service tracking and advanced analytics.")
@@ -96,7 +102,7 @@ struct ProfileView: View {
                     .font(.headline)
                 Spacer()
                 Button { viewModel.showApiKeyInfo = true } label: {
-                    Image(systemName: "info.circle")
+                    Image(systemName: "questionmark.circle")
                         .foregroundColor(.accentYellow)
                 }
             }

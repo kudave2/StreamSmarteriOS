@@ -470,18 +470,13 @@ final class WatchlistViewModel {
                     formatter.dateFormat = "yyyy-MM-dd"
                     
                     if let airDate = formatter.date(from: airDateStr), airDate > Date() {
-                        // Found a future date! Schedule notifications.
-                        let nextReadyEpisodeText = nextReadyEpisodeText(for: show)
-                        var msg: String
-                        if let readyText = nextReadyEpisodeText {
-                            msg = "\(show.title): Next ready episode is \(readyText)"
-                        } else {
-                            msg = "\(show.title): Season \(nextEp.seasonNumber), Episode \(nextEp.episodeNumber)"
-                            if let title = nextEp.name, !title.isEmpty {
-                                msg += ": \(title)"
-                            }
-                        }
-                        scheduleAirDateNotifications(for: msg, airDate: airDate)
+                        show.nextEpisodeName = nextEp.name
+                        show.nextEpisodeAirDate = airDateStr
+                        show.nextEpisodeSeasonNumber = nextEp.seasonNumber
+                        show.nextEpisodeNumber = nextEp.episodeNumber
+                        try? repository.updateWatchlistItem(show)
+
+                        scheduleAirDateNotifications(for: show, airDate: airDate)
                         updatedCount += 1
                     }
                 }
@@ -505,17 +500,13 @@ final class WatchlistViewModel {
                         let formatter = DateFormatter()
                         formatter.dateFormat = "yyyy-MM-dd"
                         if let airDate = formatter.date(from: airDateStr) {
-                            let nextReadyEpisodeText = nextReadyEpisodeText(for: item)
-                            var msg: String
-                            if let readyText = nextReadyEpisodeText {
-                                msg = "\(item.title): Next ready episode is \(readyText)"
-                            } else {
-                                msg = "\(item.title): Season \(nextEp.seasonNumber), Episode \(nextEp.episodeNumber)"
-                                if let title = nextEp.name, !title.isEmpty {
-                                    msg += ": \(title)"
-                                }
-                            }
-                            scheduleAirDateNotifications(for: msg, airDate: airDate)
+                        item.nextEpisodeName = nextEp.name
+                        item.nextEpisodeAirDate = airDateStr
+                        item.nextEpisodeSeasonNumber = nextEp.seasonNumber
+                        item.nextEpisodeNumber = nextEp.episodeNumber
+                        try? repository.updateWatchlistItem(item)
+
+                        scheduleAirDateNotifications(for: item, airDate: airDate)
                         }
                     }
                 }
@@ -539,11 +530,11 @@ final class WatchlistViewModel {
         }
     }
     
-    private func scheduleAirDateNotifications(for message: String, airDate: Date) {
+    private func scheduleAirDateNotifications(for item: WatchlistItem, airDate: Date) {
         let center = UNUserNotificationCenter.current()
         
         let displayFormatter = DateFormatter()
-        displayFormatter.dateFormat = "MM-dd-yyyy"
+        displayFormatter.dateFormat = "MM-dd-yyyy (EEEE)"
         let formattedDate = displayFormatter.string(from: airDate)
         
         let scheduleAction = { (daysBefore: Int) in
@@ -553,9 +544,24 @@ final class WatchlistViewModel {
             // Ensure we aren't scheduling a notification in the past
             if notifyDate > Date() {
                 let content = UNMutableNotificationContent()
-                content.title = "Upcoming Release!"
-                content.body = "\(message) is releasing in \(daysBefore) day\(daysBefore > 1 ? "s" : "")!"
-                content.body = "\(message) is releasing on \(formattedDate) (\(daysBefore) day\(daysBefore > 1 ? "s" : "")!)"
+                content.title = "Upcoming Release: \(item.title)"
+                
+                var body = ""
+                if item.type == "tv" {
+                    if let s = item.nextEpisodeSeasonNumber {
+                        body += "Season: \(s)\n"
+                    }
+                    if let e = item.nextEpisodeNumber {
+                        body += "Episode: \(e)"
+                        if let name = item.nextEpisodeName, !name.isEmpty {
+                            body += " - \(name)"
+                        }
+                        body += "\n"
+                    }
+                }
+                body += "Releasing on: \(formattedDate)"
+                
+                content.body = body
                 content.sound = .default
                 
                 // Create a trigger for 9:00 AM on that day
@@ -564,7 +570,7 @@ final class WatchlistViewModel {
                 components.minute = 0
                 
                 let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-                let identifier = "\(message)-\(daysBefore)day-alert"
+                let identifier = "\(item.title)-\(daysBefore)day-alert"
                 let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
                 
                 center.add(request)
@@ -603,6 +609,9 @@ final class WatchlistViewModel {
         let sRaw = sLower.replacingOccurrences(of: noise, with: "", options: .regularExpression)
         
         if sRaw.count > 2 && pRaw.contains(sRaw) { return true }
+        if pRaw.count > 2 && sRaw.contains(pRaw) { return true }
+
+        if sRaw == "appletv" && pRaw.contains("appletv") { return true }
         
         if sRaw.contains("disney") {
             if pRaw.contains("hulu") || pRaw.contains("espn") { return true }

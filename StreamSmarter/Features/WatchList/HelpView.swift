@@ -80,9 +80,9 @@ struct HelpView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 StreamSmarterLogoView(
-                    iconSize: 22,
-                    fontSize: 20,
-                    taglineSize: 6
+                    iconSize: 32,
+                    fontSize: 32,
+                    taglineSize: 10
                 )
             }
         }

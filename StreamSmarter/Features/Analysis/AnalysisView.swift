@@ -39,37 +39,51 @@ struct AnalysisView: View {
             }
         }
         .background(Color.black)
-        .onAppear {
-            viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
+        .navigationTitle(currentView == "Summary" ? "Analysis" : currentView)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                StreamSmarterLogoView(
+                    iconSize: 32,
+                    fontSize: 32,
+                    taglineSize: 10
+                )
+            }
         }
         .toolbarBackground(Color.white, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.light, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                StreamSmarterLogoView(iconSize: 22, fontSize: 20, taglineSize: 6)
-            }
+        .onAppear {
+            viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
         }
     }
 
     private var summaryHeader: some View {
-        Text("Summary")
-            .font(.largeTitle.bold())
-            .foregroundColor(.brandBlue)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
+        HStack(alignment: .center, spacing: 12) {
+            Text("Summary")
+                .font(.largeTitle.bold())
+                .foregroundColor(.brandBlue)
+
+            Spacer()
+            NavigationLink {
+                HelpView()
+            } label: {
+                Image(systemName: "questionmark.circle")
+                    .font(.title2)
+                    .foregroundColor(.red)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
     }
 
     private var deepDiveHeader: some View {
         HStack {
             Button { currentView = "Summary" } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                    Text("Back")
-                }
-                .foregroundColor(.brandBlue)
+                Text("Back")
+                    .foregroundColor(.brandBlue)
             }
             Text(currentView)
                 .font(.headline)

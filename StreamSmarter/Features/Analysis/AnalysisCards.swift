@@ -365,11 +365,18 @@ struct ServiceSelectionToggle: View {
         .onTapGesture {
             isSelected.toggle()
         }
-        .onAppear {
-            if shouldFlash {
-                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                    flashOpacity = 0.4
-                }
+        .onAppear { startFlashingIfNeeded() }
+        .onChange(of: shouldFlash) { _, _ in startFlashingIfNeeded() }
+    }
+    
+    private func startFlashingIfNeeded() {
+        if shouldFlash {
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                flashOpacity = 0.4
+            }
+        } else {
+            withAnimation {
+                flashOpacity = 1.0
             }
         }
     }

@@ -172,15 +172,22 @@ final class SubscriptionsViewModel {
 
 
     func isServiceMatch(serviceName: String, providers: String?) -> Bool {
-        guard let providers = providers?.lowercased() else { return false }
-        let nameLower = serviceName.lowercased()
-            .replacingOccurrences(of: "+", with: " plus")
-            .replacingOccurrences(of: "video", with: "")
-            .trimmingCharacters(in: .whitespaces)
+        guard let providers = providers else { return false }
+        let pLower = providers.lowercased()
+        let sLower = serviceName.lowercased()
         
-        if nameLower.contains("disney") {
-            return providers.contains("disney") || providers.contains("hulu") || providers.contains("espn")
+        let noise = "(\\+|plus|video|\\s|\\.|-|')"
+        let pRaw = pLower.replacingOccurrences(of: noise, with: "", options: .regularExpression)
+        let sRaw = sLower.replacingOccurrences(of: noise, with: "", options: .regularExpression)
+        
+        if sRaw.count > 2 && pRaw.contains(sRaw) { return true }
+        if pRaw.count > 2 && sRaw.contains(pRaw) { return true }
+
+        if sRaw == "appletv" && pRaw.contains("appletv") { return true }
+        
+        if sRaw.contains("disney") {
+            return pRaw.contains("disney") || pRaw.contains("hulu") || pRaw.contains("espn")
         }
-        return providers.contains(nameLower)
+        return false
     }
 }

@@ -446,7 +446,8 @@ final class AnalysisViewModel {
                 generate(i + 1, current + [list[i]])
             }
         }
-        for _ in 1...k { generate(0, []) } // Check 1 through K as per Android logic
+        // for _ in 1...k { generate(0, []) } // Check 1 through K as per Android logic
+        generate(0, []) 
         return result.isEmpty ? [[]] : result
     }
 }

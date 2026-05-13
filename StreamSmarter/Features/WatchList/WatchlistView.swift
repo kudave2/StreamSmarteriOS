@@ -11,17 +11,30 @@ struct WatchlistView: View {
         VStack(spacing: 0) {
             // Header / Search Area
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
+                HStack(alignment: .center, spacing: 12) {
                     Text("Watchlist")
                         .font(.largeTitle.bold())
                         .foregroundColor(.brandBlue)
+                    
+                    TmdbLogoView()
+                        .frame(height: 18)
+                    
                     Spacer()
+
+                    Button {
+                        viewModel.showAddSheet = true
+                    } label: {
+                        Image(systemName: "plus.circle")
+                            .font(.title2)
+                            .foregroundColor(.brandBlue)
+                    }
+
                     NavigationLink {
                         HelpView()
                     } label: {
-                        Image(systemName: "info.circle")
+                        Image(systemName: "questionmark.circle")
                             .font(.title2)
-                            .foregroundColor(.accentYellow)
+                            .foregroundColor(.red)
                     }
                 }
                 
@@ -69,19 +82,21 @@ struct WatchlistView: View {
             .padding(.bottom, 20)
             .background(Color.retroGray)
         }
+        .navigationTitle("Watchlist")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.white, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.light, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 StreamSmarterLogoView(
-                    iconSize: 22,
-                    fontSize: 20,
-                    taglineSize: 6
+                    iconSize: 32,
+                    fontSize: 32,
+                    taglineSize: 10
                 )
             }
         }
+        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.light, for: .navigationBar)
         .background(Color.black)
         .onAppear {
             viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
@@ -105,19 +120,6 @@ struct WatchlistView: View {
             }
         } message: {
             Text("This will permanently remove '\(showDeleteConfirmation?.title ?? "")' and its related content.")
-        }
-        .overlay(alignment: .bottomTrailing) {
-            Button { viewModel.showAddSheet = true } label: {
-                Image(systemName: "plus")
-                    .font(.title.bold())
-                    .foregroundColor(.black)
-                    .padding()
-                    .background(Color.accentYellow)
-                    .clipShape(Circle())
-                    .shadow(radius: 4)
-            }
-            .padding(24)
-            .padding(.bottom, 60)
         }
     }
     
@@ -166,6 +168,30 @@ struct WatchlistView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
         }
+    }
+}
+
+/// A SwiftUI implementation of the TMDB logo to handle cases where the 
+/// original asset is an Android XML VectorDrawable.
+struct TmdbLogoView: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(red: 1/255, green: 180/255, blue: 228/255), // TMDB Teal
+                        Color(red: 144/255, green: 206/255, blue: 161/255) // TMDB Light Green
+                    ]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ))
+            Text("TMDb")
+                .font(.system(size: 12, weight: .black))
+                .foregroundColor(.white)
+                .italic()
+                .padding(.horizontal, 6)
+        }
+        .fixedSize()
     }
 }
 

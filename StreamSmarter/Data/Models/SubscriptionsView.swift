@@ -10,13 +10,23 @@ struct SubscriptionsView: View {
     var body: some View {
         @Bindable var viewModel = viewModel
         VStack(alignment: .leading, spacing: 0) {
-            Text("Subscriptions")
-                .font(.largeTitle.bold())
-                .foregroundColor(.brandBlue)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .padding(.top, 12)
-                .padding(.bottom, 4)
+            HStack(alignment: .center, spacing: 12) {
+                Text("Subscriptions")
+                    .font(.largeTitle.bold())
+                    .foregroundColor(.brandBlue)
+
+                Spacer()
+                NavigationLink {
+                    HelpView()
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.title2)
+                        .foregroundColor(.red)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("Current Monthly Cost: \(viewModel.activeTotalCost.formatted(.currency(code: "USD")))")
@@ -78,19 +88,21 @@ struct SubscriptionsView: View {
             .listStyle(.plain)
         }
         .background(Color.black)
+        .navigationTitle("Subscriptions")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.white, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.light, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 StreamSmarterLogoView(
-                    iconSize: 22,
-                    fontSize: 20,
-                    taglineSize: 6
+                    iconSize: 32,
+                    fontSize: 32,
+                    taglineSize: 10
                 )
             }
         }
+        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.light, for: .navigationBar)
         .onAppear {
             viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
             analysisViewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))

@@ -23,6 +23,8 @@ final class WatchlistItem {
     var totalEpisodesInCurrentSeason: Int?
     var nextEpisodeName: String?
     var nextEpisodeAirDate: String?
+    var nextEpisodeSeasonNumber: Int?
+    var nextEpisodeNumber: Int?
     var overview: String?
     var watchedDate: Date?
     var watchedOn: String?
@@ -49,6 +51,8 @@ final class WatchlistItem {
         totalEpisodesInCurrentSeason: Int? = nil,
         nextEpisodeName: String? = nil,
         nextEpisodeAirDate: String? = nil,
+        nextEpisodeSeasonNumber: Int? = nil,
+        nextEpisodeNumber: Int? = nil,
         overview: String? = nil,
         watchedDate: Date? = nil,
         watchedOn: String? = nil,
@@ -74,6 +78,8 @@ final class WatchlistItem {
         self.totalEpisodesInCurrentSeason = totalEpisodesInCurrentSeason
         self.nextEpisodeName = nextEpisodeName
         self.nextEpisodeAirDate = nextEpisodeAirDate
+        self.nextEpisodeSeasonNumber = nextEpisodeSeasonNumber
+        self.nextEpisodeNumber = nextEpisodeNumber
         self.overview = overview
         self.watchedDate = watchedDate
         self.watchedOn = watchedOn
