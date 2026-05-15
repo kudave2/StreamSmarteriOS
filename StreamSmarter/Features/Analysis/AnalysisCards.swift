@@ -543,11 +543,11 @@ struct ShowAvailabilityMatrixCard: View {
          let matrixServices = {
              var list = viewModel.services
              let mainName = user?.mainViewingService
-             let mainAlreadyInList = mainName != nil && list.contains(where: { viewModel.isServiceMatch(serviceName: mainName!, providers: $0.name) })
+             let mainInList = mainName != nil && list.contains(where: { viewModel.isServiceMatch(serviceName: mainName!, providers: $0.name) })
              
-             if let main = mainName, !mainAlreadyInList {
+             if let main = mainName, !mainInList {
                  let virtualMain = StreamingService(
-                     name: "\(main) (Main Service)",
+                     name: main,
                      startDate: Date(),
                      renewalDate: Date(),
                      monthlyCost: user?.mainViewingServiceCost ?? 0.0,
@@ -557,15 +557,15 @@ struct ShowAvailabilityMatrixCard: View {
              }
              
              return list.sorted { s1, s2 in
-                 let isM1 = s1.name.contains("(Main Service)")
-                 let isM2 = s2.name.contains("(Main Service)")
-                 if isM1 != isM2 { return isM1 }
+                 let isS1Main = mainName != nil && viewModel.isServiceMatch(serviceName: mainName!, providers: s1.name)
+                 let isS2Main = mainName != nil && viewModel.isServiceMatch(serviceName: mainName!, providers: s2.name)
+                 if isS1Main != isS2Main { return isS1Main }
                  return s1.name < s2.name
              }
          }()
 
          let priorityShows = viewModel.watchlist.filter {
-             (($0.type == "movie" && $0.status == "Ready") || $0.type == "tv") && ($0.priority == 1 || $0.priority == 2)
+             $0.status == "Ready" && ($0.type == "movie" || $0.type == "tv") && ($0.priority == 1 || $0.priority == 2)
          }
          .sorted { $0.priority < $1.priority || ($0.priority == $1.priority && $0.title < $1.title) }
 
@@ -583,10 +583,9 @@ struct ShowAvailabilityMatrixCard: View {
                                  .frame(width: 100, alignment: .leading)
                              
                              ForEach(matrixServices) { service in
-                                 let displayName = service.name.replacingOccurrences(of: " (Main Service)", with: "")
-                                 let isMain = service.name.contains("(Main Service)")
+                                 let isMain = user?.mainViewingService != nil && viewModel.isServiceMatch(serviceName: user!.mainViewingService!, providers: service.name)
                                  
-                                 Text(displayName)
+                                 Text(service.name)
                                      .font(.system(size: 8))
                                      .foregroundColor(isMain ? .popcornYellow : .white)
                                      .lineLimit(1)
@@ -610,8 +609,7 @@ struct ShowAvailabilityMatrixCard: View {
                                      .frame(width: 100, alignment: .leading)
                                  
                                  ForEach(matrixServices) { service in
-                                     let sName = service.name.replacingOccurrences(of: " (Main Service)", with: "")
-                                     let isAvailable = viewModel.isServiceMatch(serviceName: sName, providers: show.providers ?? "")
+                                     let isAvailable = viewModel.isServiceMatch(serviceName: service.name, providers: show.providers ?? "")
                                      
                                      ZStack {
                                          Circle()

@@ -3,6 +3,8 @@ import SwiftData
 
 @main
 struct StreamSmarterApp: App {
+    @AppStorage("isOnboardingComplete") var isOnboardingComplete: Bool = false
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             User.self,
@@ -21,10 +23,13 @@ struct StreamSmarterApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .preferredColorScheme(.light)
+            if isOnboardingComplete {
+                ContentView()
+                    .preferredColorScheme(.light)
+            } else {
+                OnboardingView()
+            }
         }
         .modelContainer(sharedModelContainer)
     }
 }
-

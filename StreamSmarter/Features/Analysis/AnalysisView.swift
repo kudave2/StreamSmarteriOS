@@ -4,210 +4,169 @@ import SwiftData
 struct AnalysisView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = AnalysisViewModel()
-    @State private var currentView: String = "Summary"
+    @State private var profileViewModel = ProfileViewModel()
     
     var body: some View {
-        VStack(spacing: 0) {
-            if currentView == "Summary" {
-                summaryHeader
-            } else {
-                deepDiveHeader
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                if profileViewModel.isPremiumUser {
+                    unlockedContent
+                } else {
+                    lockedContent
+                }
             }
-
-            ScrollView {
-                VStack(spacing: 16) {
-                    if let results = viewModel.results {
-                        switch currentView {
-                        case "Summary":
-                            summaryDashboard(results)
-                        case "Let's Binge!":
-                            bingeDeepDive(results)
-                        case "High Priority Active":
-                            activeDeepDive(results)
-                        case "History / Good to Know":
-                            historyDeepDive(results)
-                        case "Options to Consider":
-                            optionsDeepDive(results)
-                        default:
-                            EmptyView()
+            .navigationTitle("Analysis")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    StreamSmarterLogoView(
+                        iconSize: 32,
+                        fontSize: 32,
+                        taglineSize: 10,
+                        onLogoClick: {
+                            profileViewModel.toggleOverridePremium()
                         }
-                    } else {
-                        ContentUnavailableView("No Data Available", systemImage: "chart.bar.xaxis", description: Text("Add items to your watchlist and services to see analysis."))
-                    }
-                }
-                .padding()
-            }
-        }
-        .background(Color.black)
-        .navigationTitle(currentView == "Summary" ? "Analysis" : currentView)
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                StreamSmarterLogoView(
-                    iconSize: 32,
-                    fontSize: 32,
-                    taglineSize: 10
-                )
-            }
-        }
-        .toolbarBackground(Color.white, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.light, for: .navigationBar)
-        .onAppear {
-            viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
-        }
-    }
-
-    private var summaryHeader: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text("Summary")
-                .font(.largeTitle.bold())
-                .foregroundColor(.brandBlue)
-
-            Spacer()
-            NavigationLink {
-                HelpView()
-            } label: {
-                Image(systemName: "questionmark.circle")
-                    .font(.title2)
-                    .foregroundColor(.red)
-            }
-        }
-        .padding(.horizontal)
-        .padding(.top, 12)
-        .padding(.bottom, 4)
-    }
-
-    private var deepDiveHeader: some View {
-        HStack {
-            Button { currentView = "Summary" } label: {
-                Text("Back")
-                    .foregroundColor(.brandBlue)
-            }
-            Text(currentView)
-                .font(.headline)
-                .foregroundColor(.white)
-            Spacer()
-        }
-        .padding()
-    }
-
-    @ViewBuilder
-    private func summaryDashboard(_ results: AnalysisResults) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // First Glance Card
-            FirstGlanceCard(user: viewModel.user, data: results, viewModel: viewModel)
-            
-            // Optimal Timeline Card
-            OptimalTimelineCard(user: viewModel.user, data: results, viewModel: viewModel)
-            
-            // Project Timeline Card
-            ProjectTimelineCard(user: viewModel.user, data: results, viewModel: viewModel)
-            
-            // Show Availability Matrix Card
-            ShowAvailabilityMatrixCard(user: viewModel.user, data: results, viewModel: viewModel)
-            
-            Text("Deep Dive Analytics")
-                .font(.headline.bold())
-                .foregroundColor(.white)
-            
-            VStack(spacing: 12) {
-                deepDiveButton(title: "Let's Binge!", subtitle: "\(results.bingeByService.count) services expiring soon", color: .orange)
-                deepDiveButton(title: "High Priority Active", subtitle: "\(results.highPriorityReady.count) shows ready to watch", color: .green)
-                deepDiveButton(title: "History / Good to Know", subtitle: "\(results.monthlyHistory.count) months of data", color: .yellow)
-                deepDiveButton(title: "Options to Consider", subtitle: "Service change recommendations", color: .brandBlue)
-            }
-        }
-    }
-
-    private func deepDiveButton(title: String, subtitle: String, color: Color) -> some View {
-        Button { currentView = title } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title).font(.headline).foregroundColor(color)
-                    Text(subtitle).font(.caption).foregroundColor(.gray)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").foregroundColor(color)
-            }
-            .padding()
-            .background(Color.retroGray)
-            .cornerRadius(10)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(color.opacity(0.3), lineWidth: 1))
-        }
-    }
-
-    private func bingeDeepDive(_ results: AnalysisResults) -> some View {
-        VStack(spacing: 12) {
-            if results.bingeByService.isEmpty {
-                Text("No services expiring within 10 days with high priority content.").foregroundColor(.gray).padding()
-            } else {
-                ForEach(results.bingeByService.keys.sorted(by: { $0.name < $1.name })) { service in
-                    HighPriorityServiceCard(
-                        service: service,
-                        items: results.bingeByService[service] ?? [],
-                        allWatchlist: viewModel.watchlist,
-                        accentColor: .orange,
-                        viewModel: viewModel
                     )
                 }
-            }
-        }
-    }
-
-    private func activeDeepDive(_ results: AnalysisResults) -> some View {
-        VStack(spacing: 12) {
-            ForEach(results.regularPriorityByService.keys.sorted(by: { $0.name < $1.name })) { service in
-                HighPriorityServiceCard(
-                    service: service,
-                    items: results.regularPriorityByService[service] ?? [],
-                    allWatchlist: viewModel.watchlist,
-                    accentColor: .green,
-                    viewModel: viewModel
-                )
-            }
-        }
-    }
-
-    private func historyDeepDive(_ results: AnalysisResults) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            RecentWatchAuditCard(watchlist: viewModel.watchlist, viewModel: viewModel)
-            
-            if !results.historyByService.isEmpty {
-                Text("Watch History by Service (Last 30 Days)")
-                    .font(.caption.bold()).foregroundColor(.popcornYellow).padding(.leading, 4)
-                
-                ForEach(results.historyByService.keys.sorted(by: { $0.name < $1.name })) { service in
-                    ServiceHistoryCard(service: service, items: results.historyByService[service] ?? [], watchlist: viewModel.watchlist, viewModel: viewModel)
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        HelpView()
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                            .foregroundColor(.red)
+                    }
                 }
             }
-            
-            if !results.monthlyHistory.isEmpty {
-                Text("Monthly Watch History").font(.caption.bold()).foregroundColor(.white).padding(.leading, 4)
-                MonthlyHistoryTableCard(monthlyHistory: results.monthlyHistory, watchlist: viewModel.watchlist, viewModel: viewModel)
+            .onAppear {
+                viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
+                profileViewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
             }
-            
-            MainServiceDuplicatesCard(user: viewModel.user, data: results, watchlist: viewModel.watchlist, viewModel: viewModel)
-            
-            if !results.duplicateShows.isEmpty {
-                Text("Shows on Multiple Active Services").font(.caption.bold()).foregroundColor(.popcornYellow).padding(.leading, 4)
-                ForEach(results.duplicateShows, id: \.0.id) { (show, providers) in
-                    DuplicateShowCard(showTitle: show.title, providerList: providers.map { $0.name }.joined(separator: ", "))
+            .alert("Go Premium!", isPresented: $profileViewModel.showPremiumDialog) {
+                Button("Purchase") {
+                    profileViewModel.toggleOverridePremium()
                 }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Unlock premium features including main viewing service tracking and advanced analytics.")
             }
         }
     }
+    
+    private var unlockedContent: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                if let data = viewModel.results {
+                    // Main Analysis Dashboard
+                    FirstGlanceCard(user: viewModel.user, data: data, viewModel: viewModel)
+                    OptimalTimelineCard(user: viewModel.user, data: data, viewModel: viewModel)
+                    ProjectTimelineCard(user: viewModel.user, data: data, viewModel: viewModel)
+                    ShowAvailabilityMatrixCard(user: viewModel.user, data: data, viewModel: viewModel)
 
-    private func optionsDeepDive(_ results: AnalysisResults) -> some View {
-        VStack(spacing: 16) {
-            SummaryCard(user: viewModel.user, data: results, viewModel: viewModel)
-            WindsOfChangeCard(user: viewModel.user, data: results, watchlist: viewModel.watchlist, viewModel: viewModel)
-            DetoxCard(data: results, watchlist: viewModel.watchlist, viewModel: viewModel)
+                    // Deep Dive Analytics Dashboard
+                    Text("Deep Dive Analytics")
+                        .font(.title2.bold())
+                        .foregroundColor(.accentYellow)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 10)
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
+                        NavigationLink {
+                            BingingOpportunitiesView(user: viewModel.user, data: data, viewModel: viewModel)
+                        } label: {
+                            DeepDiveCard(title: "Binging", subtitle: "Opportunities", icon: "hourglass.bottomhalf.fill")
+                        }
+                        
+                        NavigationLink {
+                            HistoryTrendsView(user: viewModel.user, data: data, viewModel: viewModel)
+                        } label: {
+                            DeepDiveCard(title: "History", subtitle: "Trends", icon: "clock.arrow.circlepath")
+                        }
+                        
+                        NavigationLink {
+                            ServiceUtilizationView(user: viewModel.user, data: data, viewModel: viewModel)
+                        } label: {
+                            DeepDiveCard(title: "High Priority", subtitle: "Active Services", icon: "star.fill")
+                        }
+                        
+                        NavigationLink {
+                            OptimizationOptionsView(user: viewModel.user, data: data, viewModel: viewModel)
+                        } label: {
+                            DeepDiveCard(title: "Options to", subtitle: "Consider", icon: "lightbulb.fill")
+                        }
+                    }
+                } else {
+                    ProgressView().tint(.accentYellow).padding(.top, 50)
+                }
+            }
+            .padding()
         }
+    }
+    
+    private var lockedContent: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            
+            Image(systemName: "lock.fill")
+                .font(.system(size: 60))
+                .foregroundColor(.accentYellow)
+            
+            Text("Premium Analytics Locked")
+                .font(.title2.bold())
+                .foregroundColor(.white)
+            
+            Text("Unlock advanced binging timelines, service cost analysis, and data-driven recommendations to save more on streaming.")
+                .font(.body)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            
+            Button {
+                profileViewModel.showPremiumDialog = true
+            } label: {
+                Text("Upgrade to Premium")
+                    .font(.headline.bold())
+                    .foregroundColor(.black)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.accentYellow)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal, 40)
+            
+            Spacer()
+            Spacer()
+        }
+        .background(Color.black)
     }
 }
 
-#Preview {
-    AnalysisView()
+// Helper struct for consistent Deep Dive Navigation Cards
+struct DeepDiveCard: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title)
+                .frame(height: 32)
+                .foregroundColor(.brandBlue)
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(.subheadline.bold())
+                Text(subtitle)
+                    .font(.caption2)
+            }
+            .foregroundColor(.white)
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .background(Color.retroGray)
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+    }
 }

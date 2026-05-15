@@ -334,45 +334,6 @@ struct ProfileView: View {
     }
 }
 
-private struct TmdbApiKeyInfoSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("TMDB (The Movie Database) is a free, community-built movie and TV database.")
-                    .foregroundColor(.white)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 0) {
-                        Text("1. ")
-                            .foregroundColor(Color(white: 0.8))
-                        Link("Create a free TMDB account", destination: URL(string: "https://www.themoviedb.org/signup")!)
-                            .foregroundColor(.blue)
-                            .underline(true, color: .blue)
-                    }
-                    Text("2. Go to Settings → API")
-                    Text("3. Request an API key (Developer)")
-                    Text("4. Copy the API Key (v3 auth)")
-                }
-                .foregroundColor(Color(white: 0.8))
-
-                Spacer()
-            }
-            .padding()
-            .background(Color.black)
-            .navigationTitle("About TMDB API Keys")
-            .navigationBarTitleDisplayMode(.inline)
-            .preferredColorScheme(.dark)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.foregroundColor(.accentYellow)
-                }
-            }
-        }
-    }
-}
-
 #Preview {
     ProfileView()
 }

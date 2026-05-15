@@ -245,7 +245,13 @@ final class WatchlistViewModel {
     func searchTmdb(_ query: String) async {
         guard let repository, let apiKey = user?.tmdbApiKey else { return }
         isSearching = true
-        searchResults = await repository.searchTmdb(query: query, apiKey: apiKey)
+        let results = await repository.searchTmdb(query: query, apiKey: apiKey)
+        // If the repository returns an empty list or specific error structure on 401, 
+        // you could trigger a UI alert here to prompt the user to check their Profile.
+        if results.isEmpty && !query.isEmpty {
+            // Log or handle potential key expiration
+        }
+        searchResults = results
         isSearching = false
     }
     
