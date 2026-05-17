@@ -271,18 +271,16 @@ final class WatchlistViewModel {
         
         let (tResults, mResults, tvResults) = await (trending, popularMovies, popularTV)
         
-        // Use separate tracking for sections to ensure we actually fill the rows 
-        // even if there is heavy overlap between Trending and Popular content.
-        var trendingIds = Set<Int>()
-        var popularIds = Set<Int>()
+        // Use a shared set to prevent duplicates across both sections
+        var seenDiscoveryIds = Set<Int>()
         
-        self.trendingResults = processDiscoveryResults(tResults, limit: 5, seenIds: &trendingIds)
+        self.trendingResults = processDiscoveryResults(tResults, limit: 10, seenIds: &seenDiscoveryIds)
         
         // Combine Movie and TV results to ensure we have a large enough pool to get 5 valid items
         var popularPool = mResults
         popularPool.append(contentsOf: tvResults)
         popularPool.shuffle() 
-        self.popularResults = processDiscoveryResults(popularPool, limit: 5, seenIds: &popularIds)
+        self.popularResults = processDiscoveryResults(popularPool, limit: 10, seenIds: &seenDiscoveryIds)
         
         isSearching = false
     }
