@@ -2,6 +2,11 @@ import Foundation
 import SwiftData
 import Observation
 
+/// Internal wrapper to decode TMDB API list responses (Popular, Trending, etc.)
+struct TmdbResponse: Decodable {
+    let results: [TmdbSearchResult]
+}
+
 @Observable
 final class StreamSmarterRepository {
     private let modelContext: ModelContext
@@ -249,4 +254,21 @@ final class StreamSmarterRepository {
             return []
         }
     }
+
+    func fetchTmdbEndpoint(_ path: String, apiKey: String) async -> [TmdbSearchResult] {
+    // Correct URL: https://api.themoviedb.org/3/movie/popular?api_key=...
+    // WRONG URL: https://api.themoviedb.org/3/search/multi?query=movie/popular&api_key=...
+        let urlString = "https://api.themoviedb.org/3/\(path)?api_key=\(apiKey)"
+        guard let url = URL(string: urlString) else { return [] }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try JSONDecoder().decode(TmdbResponse.self, from: data)
+            return response.results
+        } catch {
+            print("Decoding error: \(error)")
+            return []
+        }
+    }
+
 }

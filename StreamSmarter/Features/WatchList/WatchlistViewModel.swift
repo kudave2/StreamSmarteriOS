@@ -9,6 +9,13 @@ enum WatchlistTab {
     case available, unavailable, watched, search
 }
 
+struct WatchlistSelection {
+    let tmdbResult: TmdbSearchResult
+    let itemType: String
+    let seasonNumber: Int?
+    let episodeNumber: Int?
+}
+
 @Observable
 @MainActor
 final class WatchlistViewModel {
@@ -24,6 +31,11 @@ final class WatchlistViewModel {
     // For Add Flow
     var showAddSheet: Bool = false
     var searchResults: [TmdbSearchResult] = []
+    var trendingResults: [TmdbSearchResult] = []
+    var popularResults: [TmdbSearchResult] = []
+    var recommendations: [TmdbSearchResult] = []
+    var showApiKeyError: Bool = false
+    var selectedResult: TmdbSearchResult? // Added to manage the detail sheet state
     var isSearching: Bool = false
     private let backgroundTaskID = "com.streamsmarter.refreshAirDates"
     
@@ -33,6 +45,7 @@ final class WatchlistViewModel {
         if let apiKey = user?.tmdbApiKey, !apiKey.isEmpty {
             Task {
                 await repository.backfillAirDates(apiKey: apiKey)
+                await fetchTrendingContent()
                 refreshData()
             }
         }
@@ -242,17 +255,90 @@ final class WatchlistViewModel {
     
     // MARK: - Search & Add
     
+    func fetchTrendingContent() async {
+        guard let repository else { return }
+        refreshData()
+
+        guard let apiKey = user?.tmdbApiKey, !apiKey.isEmpty else { return }
+        
+        isSearching = true
+        
+        // IMPORTANT: Ensure your repository has a method that fetches from a PATH 
+        // rather than passing these paths as a 'query' string to the search endpoint.
+        async let trending = repository.fetchTmdbEndpoint("trending/all/day", apiKey: apiKey)
+        async let popularMovies = repository.fetchTmdbEndpoint("movie/popular", apiKey: apiKey)
+        async let popularTV = repository.fetchTmdbEndpoint("tv/popular", apiKey: apiKey)
+        
+        let (tResults, mResults, tvResults) = await (trending, popularMovies, popularTV)
+        
+        // Use separate tracking for sections to ensure we actually fill the rows 
+        // even if there is heavy overlap between Trending and Popular content.
+        var trendingIds = Set<Int>()
+        var popularIds = Set<Int>()
+        
+        self.trendingResults = processDiscoveryResults(tResults, limit: 5, seenIds: &trendingIds)
+        
+        // Combine Movie and TV results to ensure we have a large enough pool to get 5 valid items
+        var popularPool = mResults
+        popularPool.append(contentsOf: tvResults)
+        popularPool.shuffle() 
+        self.popularResults = processDiscoveryResults(popularPool, limit: 5, seenIds: &popularIds)
+        
+        isSearching = false
+    }
+
+    private func processDiscoveryResults(_ results: [TmdbSearchResult], limit: Int, seenIds: inout Set<Int>) -> [TmdbSearchResult] {
+        var processed: [TmdbSearchResult] = []
+        
+        for item in results {
+            let title = item.title ?? item.name ?? ""
+            
+            // Relax restriction: as long as there is a title, we allow it.
+            // The UI (TmdbResultCard) already handles missing posters with a placeholder.
+            if !title.trimmingCharacters(in: .whitespaces).isEmpty {
+                // Ensure we don't have duplicates within the same section
+                if !seenIds.contains(item.id) {
+                    seenIds.insert(item.id)
+                    processed.append(item)
+                }
+            }
+            if processed.count >= limit { break }
+        }
+        return processed
+    }
+
     func searchTmdb(_ query: String) async {
         guard let repository, let apiKey = user?.tmdbApiKey else { return }
+        
+        if query.isEmpty {
+            searchResults = []
+            return
+        }
+
         isSearching = true
         let results = await repository.searchTmdb(query: query, apiKey: apiKey)
-        // If the repository returns an empty list or specific error structure on 401, 
-        // you could trigger a UI alert here to prompt the user to check their Profile.
-        if results.isEmpty && !query.isEmpty {
-            // Log or handle potential key expiration
+        
+        // Health Check: If search returns no results, verify if the API key is valid
+        if results.isEmpty {
+            let isValid = await repository.validateTmdbApiKey(apiKey)
+            self.showApiKeyError = !isValid
+        } else {
+            self.showApiKeyError = false
         }
+        
         searchResults = results
         isSearching = false
+    }
+    
+    func isItemInWatchlist(tmdbId: Int) -> Bool {
+        allItems.contains { $0.tmdbId == tmdbId || $0.parentTmdbId == tmdbId }
+    }
+    
+    func fetchRecommendations(for tmdbId: Int, type: String) async {
+        guard let repository, let apiKey = user?.tmdbApiKey else { return }
+        // Fetch similar content based on what was just added
+        let results = await repository.searchTmdb(query: "\(type)/\(tmdbId)/recommendations", apiKey: apiKey)
+        self.recommendations = results
     }
     
     func addItemsToWatchlist(selections: [WatchlistSelection], priority: Int) async {
@@ -266,6 +352,11 @@ final class WatchlistViewModel {
                 seasonNumber: selection.seasonNumber,
                 episodeNumber: selection.episodeNumber
             )
+        }
+
+        // Discovery loop: Suggest items based on the last addition after the batch completes
+        if let lastItem = selections.last {
+            await fetchRecommendations(for: lastItem.tmdbResult.id, type: lastItem.itemType)
         }
         refreshData()
     }
@@ -599,9 +690,10 @@ final class WatchlistViewModel {
         return await repository.getTvSeasonDetails(tvId: tvId, seasonNumber: seasonNumber, apiKey: apiKey)
     }
     
-    private func fetchProviders(for result: TmdbSearchResult) async -> String? {
+    func fetchProviders(for result: TmdbSearchResult) async -> String? {
         guard let repository, let apiKey = user?.tmdbApiKey else { return nil }
-        let list = await repository.getWatchProviders(type: result.mediaType ?? "movie", id: result.id, apiKey: apiKey)
+        let mediaType = result.mediaType ?? (result.name != nil ? "tv" : "movie")
+        let list = await repository.getWatchProviders(type: mediaType, id: result.id, apiKey: apiKey)
         return list.isEmpty ? nil : list.joined(separator: ", ")
     }
     
