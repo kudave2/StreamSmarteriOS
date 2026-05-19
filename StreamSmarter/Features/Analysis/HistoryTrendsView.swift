@@ -1,41 +1,74 @@
 import SwiftUI
-import SwiftData
 
 struct HistoryTrendsView: View {
     let user: User?
     let data: AnalysisResults
     let viewModel: AnalysisViewModel
-
+    
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                RecentWatchAuditCard(watchlist: viewModel.watchlist, viewModel: viewModel)
-                
-                if !data.historyByService.isEmpty {
-                    Text("Watched History by Service")
-                        .font(.headline.bold())
-                        .foregroundColor(.popcornYellow)
-                        .padding(.top, 10)
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Standard Title Row with Help Icon
+                HStack(alignment: .center, spacing: 12) {
+                    Text("History Trends")
+                        .font(.title.bold())
+                        .foregroundColor(.brandBlue)
                     
-                    ForEach(data.historyByService.keys.sorted(by: { $0.name < $1.name })) { service in
-                        if let items = data.historyByService[service], !items.isEmpty {
-                            ServiceHistoryCard(service: service, items: items, watchlist: viewModel.watchlist, viewModel: viewModel)
-                        }
+                    Spacer()
+
+                    NavigationLink {
+                        HelpView()
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                            .font(.title2)
+                            .foregroundColor(.red)
                     }
                 }
-                
-                if !data.monthlyHistory.isEmpty {
-                    Text("Monthly Watched History")
-                        .font(.headline.bold())
-                        .foregroundColor(.popcornYellow)
-                        .padding(.top, 10)
-                    MonthlyHistoryTableCard(monthlyHistory: data.monthlyHistory, watchlist: viewModel.watchlist, viewModel: viewModel)
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // 1. Monthly Watched History Card
+                        MonthlyHistoryTableCard(
+                            monthlyHistory: data.monthlyHistory,
+                            watchlist: viewModel.watchlist,
+                            viewModel: viewModel
+                        )
+                        
+                        // 2. Available on Main Service & Others Section
+                        MainServiceDuplicatesCard(
+                            user: user,
+                            data: data,
+                            watchlist: viewModel.watchlist,
+                            viewModel: viewModel
+                        )
+                        
+                        // 3. Shows on Multiple Active Services Section
+                        MultipleActiveServiceShowsCard(
+                            data: data,
+                            viewModel: viewModel
+                        )
+                    }
+                    .padding()
                 }
             }
-            .padding()
         }
-        .navigationTitle("History Trends")
         .navigationBarTitleDisplayMode(.inline)
-        .background(Color.black.ignoresSafeArea())
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                StreamSmarterLogoView(
+                    iconSize: 24,
+                    fontSize: 24,
+                    taglineSize: 8
+                )
+            }
+        }
+        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.light, for: .navigationBar)
     }
 }

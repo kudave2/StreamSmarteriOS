@@ -1,22 +1,37 @@
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
+    
+    
+    
+    @State private var selectedTab = 0
     var body: some View {
         TabView {
+            // First Tab with a NavigationStack
             NavigationStack {
                 WatchlistView()
             }
             .tabItem {
                 Label("Watchlist", systemImage: "eyes")
             }
+            .tag(0)
+            // 1. Applies the opaque orange color to this tab bar state
+            .toolbarBackground(Color.orange, for: .tabBar)
+            // 2. Forces it to remain visible/opaque even when scrolling
+            .toolbarBackground(.visible, for: .tabBar)
             
+            // Second Tab (Simple Profile Placeholder)
             NavigationStack {
                 SubscriptionsView()
             }
             .tabItem {
                 Label("Subscriptions", systemImage: "ticket.fill")
             }
+            .tag(1)
+            // 1. Applies the opaque orange color to this tab bar state
+            .toolbarBackground(Color.orange, for: .tabBar)
+            // 2. Forces it to remain visible/opaque even when scrolling
+            .toolbarBackground(.visible, for: .tabBar)
             
             NavigationStack {
                 AnalysisView()
@@ -24,6 +39,11 @@ struct ContentView: View {
             .tabItem {
                 Label("Analysis", systemImage: "brain.fill")
             }
+            .tag(2)
+            // 1. Applies the opaque orange color to this tab bar state
+            .toolbarBackground(Color.orange, for: .tabBar)
+            // 2. Forces it to remain visible/opaque even when scrolling
+            .toolbarBackground(.visible, for: .tabBar)
             
             NavigationStack {
                 ProfileView()
@@ -31,10 +51,47 @@ struct ContentView: View {
             .tabItem {
                 Label("Profile", systemImage: "person.fill")
             }
+            .tag(3)
+            // 1. Applies the opaque orange color to this tab bar state
+            .toolbarBackground(Color.orange, for: .tabBar)
+            // 2. Forces it to remain visible/opaque even when scrolling
+            .toolbarBackground(.visible, for: .tabBar)
         }
-        .tint(.accentYellow)
-        .preferredColorScheme(.light)
+        .animation(nil, value: selectedTab)
+        .tint(.blue)
+        .preferredColorScheme(.dark)
     }
+}
+
+
+// MARK: - Component Views
+
+struct HomeView: View {
+    var body: some View {
+        List(1...20, id: \.self) { item in
+            NavigationLink(value: item) {
+                Text("List Item \(item)")
+            }
+        }
+        .navigationDestination(for: Int.self) { item in
+            DetailView(itemNumber: item)
+        }
+    }
+}
+
+struct DetailView: View {
+    let itemNumber: Int
+    
+    var body: some View {
+        VStack {
+            Text("Detail View for Item \(itemNumber)")
+                .font(.title)
+        }
+        .navigationTitle("Item \(itemNumber)")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+
     
     private func menuButton(title: String, icon: String) -> some View {
         HStack {
@@ -49,6 +106,7 @@ struct ContentView: View {
         .cornerRadius(10)
     }
 }
+
 
 #Preview {
     ContentView()

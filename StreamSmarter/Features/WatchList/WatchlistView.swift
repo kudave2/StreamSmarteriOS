@@ -13,7 +13,7 @@ struct WatchlistView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .center, spacing: 12) {
                     Text("Watchlist")
-                        .font(.largeTitle.bold())
+                        .font(.title.bold())
                         .foregroundColor(.brandBlue)
                     
                     TmdbLogoView()
@@ -42,8 +42,9 @@ struct WatchlistView: View {
                     Text("Current Monthly Cost: \(total.formatted(.currency(code: "USD")))")
                         .font(.headline)
                         .foregroundColor(.accentYellow)
+                        .padding(.horizontal, 16)
                 }
-                
+
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundColor(.gray)
                     TextField("Search watchlist...", text: $viewModel.searchQuery)
@@ -53,8 +54,9 @@ struct WatchlistView: View {
                 .padding(10)
                 .background(Color.retroGray)
                 .cornerRadius(8)
+                .padding(.horizontal, 16)
             }
-            .padding()
+            .padding(.vertical, 8)
             .background(Color.black)
 
             // Main List
@@ -79,18 +81,20 @@ struct WatchlistView: View {
                 tabButton(title: "Unavailable", tab: .unavailable)
                 tabButton(title: "Watched", tab: .watched)
             }
+            .id(viewModel.selectedTab)
             .padding(.bottom, 20)
             .background(Color.retroGray)
         }
+        .animation(nil, value: viewModel.selectedTab)
         .navigationTitle("Watchlist")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 StreamSmarterLogoView(
-                    iconSize: 32,
-                    fontSize: 32,
-                    taglineSize: 10
+                    iconSize: 24,
+                    fontSize: 24,
+                    taglineSize: 8
                 )
             }
         }
@@ -101,7 +105,9 @@ struct WatchlistView: View {
         .onAppear {
             viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
         }
-        .sheet(isPresented: $viewModel.showAddSheet) {
+        .sheet(isPresented: $viewModel.showAddSheet, onDismiss: {
+            viewModel.searchQuery = ""
+        }) {
             AddWatchlistView(viewModel: viewModel)
         }
         .sheet(item: $itemToEdit) { item in
@@ -151,7 +157,11 @@ struct WatchlistView: View {
 
     private func tabButton(title: String, tab: WatchlistTab) -> some View {
         Button {
-            viewModel.selectedTab = tab
+            var transaction = Transaction()
+            transaction.animation = nil
+            withTransaction(transaction) {
+                viewModel.selectedTab = tab
+            }
         } label: {
             VStack(spacing: 4) {
                 Text(title)
@@ -216,7 +226,9 @@ struct HierarchicalWatchlistRow: View {
                         HStack {
                             VStack(alignment: .leading) {
                                 Text(item.title).font(.headline).bold().foregroundColor(.black)
-                                Text("\(item.type.uppercased()) • Priority: \(priorityLabel)")
+                                Text(item.type.uppercased())
+                                    .font(.caption).foregroundColor(.black.opacity(0.7))
+                                Text("Priority: \(priorityLabel)")
                                     .font(.caption).foregroundColor(.black.opacity(0.7))
                                 
                                 if item.status == "Watched", let watchedOn = item.watchedOn {

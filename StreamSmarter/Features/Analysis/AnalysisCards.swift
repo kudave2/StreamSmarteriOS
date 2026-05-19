@@ -515,7 +515,7 @@ struct TimelineGanttChart: View {
                                 context.draw(Text(labelText).font(.system(size: 9)).foregroundColor(.white),
                                              at: CGPoint(x: left - paddingPx, y: textTop),
                                              anchor: .trailing)
-                            } else if barWidth >= textWidth + (paddingPx * 2) {
+                        } else {
                                 context.draw(Text(labelText).font(.system(size: 9)).foregroundColor(.white),
                                              at: CGPoint(x: left + paddingPx, y: textTop),
                                              anchor: .leading)
@@ -896,14 +896,19 @@ struct MonthlyHistoryTableCard: View {
         }
         .sheet(item: $selectedMonth) { month in
             NavigationStack {
-                List(month.items) { item in
-                    HStack {
-                        Text(viewModel.getDisplayTitle(for: item, in: watchlist))
-                            .font(.subheadline)
-                        Spacer()
-                        Text("\(item.runtime ?? 0)m")
-                            .font(.caption).foregroundColor(.gray)
+                List {
+                    Section(header: Text("Watched Items").foregroundColor(.popcornYellow)) {
+                        ForEach(month.items) { item in
+                            HStack {
+                                Text(viewModel.getDisplayTitle(for: item, in: watchlist))
+                                    .font(.subheadline)
+                                Spacer()
+                                Text("\(item.runtime ?? 0)m")
+                                    .font(.caption).foregroundColor(.gray)
+                            }
+                        }
                     }
+                    
                 }
                 .navigationTitle("\(month.monthName) \(String(month.year)) History")
                 .navigationBarTitleDisplayMode(.inline)
@@ -913,6 +918,7 @@ struct MonthlyHistoryTableCard: View {
                     }
                 }
             }
+            .preferredColorScheme(.dark)
             .presentationDetents([.medium, .large])
         }
     }
@@ -925,33 +931,72 @@ struct MainServiceDuplicatesCard: View {
     let viewModel: AnalysisViewModel
     
     var body: some View {
-        if let mainName = user?.mainViewingService {
-            let allActive = (data.steadyServices + data.changeServices).unique(by: \.id)
-            let duplicates = watchlist.filter { $0.status == "Ready" && ($0.type == "movie" || $0.type == "tv") }
-                .compactMap { item -> (WatchlistItem, [StreamingService])? in
-                    let providers = item.providers ?? ""
-                    if viewModel.isServiceMatch(serviceName: mainName, providers: providers) {
-                        let others = allActive.filter { viewModel.isServiceMatch(serviceName: $0.name, providers: providers) }
-                        return !others.isEmpty ? (item, others) : nil
-                    }
-                    return nil
-                }
-            
-            if !duplicates.isEmpty {
-                CardBackground {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Available on Main Service & Others")
-                            .font(.subheadline.bold()).foregroundColor(.popcornYellow)
-                        Text("These are on \(mainName) AND another active service:")
-                            .font(.caption2).foregroundColor(.gray)
-                        
+        CardBackground {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Available on Main Service & Others")
+                    .font(.subheadline.bold()).foregroundColor(.popcornYellow)
+                
+                if let mainName = user?.mainViewingService, !mainName.isEmpty {
+                    let allOtherServices = viewModel.services.filter { !viewModel.isServiceMatch(serviceName: mainName, providers: $0.name) }
+                    let duplicates = watchlist.filter { $0.status == "Ready" && ($0.type == "movie" || $0.type == "tv") }
+                        .compactMap { item -> (WatchlistItem, [StreamingService])? in
+                            let providers = item.providers ?? ""
+                            if viewModel.isServiceMatch(serviceName: mainName, providers: providers) {
+                                let others = allOtherServices.filter { other in viewModel.isServiceMatch(serviceName: other.name, providers: providers) }
+                                return !others.isEmpty ? (item, others) : nil
+                            }
+                            return nil
+                        }
+
+                    Text("These are on \(mainName) AND another service (active or not):")
+                        .font(.caption2).foregroundColor(.gray)
+
+                    if duplicates.isEmpty {
+                        Text("No current redundancies found in your 'Ready' watchlist.")
+                            .font(.caption2).italic().foregroundColor(.gray)
+                    } else {
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(duplicates, id: \.0.id) { (item, others) in
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("• \(item.title)").font(.caption).bold().foregroundColor(.white)
                                     Text("  Also on: \(others.map { $0.name }.joined(separator: ", "))")
-                                        .font(.system(size: 10)).foregroundColor(.cyan)
+                                        .font(.system(size: 9)).foregroundColor(.cyan)
                                 }
+                            }
+                        }
+                    }
+                } else {
+                    Text("Please set a 'Main Viewing Service' in your Profile to audit content redundancies.")
+                        .font(.caption2).italic().foregroundColor(.gray)
+                }
+            }
+        }
+    }
+}
+
+struct MultipleActiveServiceShowsCard: View {
+    let data: AnalysisResults
+    let viewModel: AnalysisViewModel
+
+    var body: some View {
+        CardBackground {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Shows on Multiple Active Services")
+                    .font(.subheadline.bold()).foregroundColor(.popcornYellow)
+                
+                if data.multipleActiveServiceShows.isEmpty {
+                    Text("No shows found that are currently 'Ready' and available on more than one active streaming service. This section helps identify potential redundancies in your active subscriptions.")
+                        .font(.caption2).italic().foregroundColor(.gray)
+                } else {
+                    Text("These 'Ready' shows are available on more than one of your currently active services:")
+                        .font(.caption2).foregroundColor(.gray)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(data.multipleActiveServiceShows, id: \.0.id) { (item, services) in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("• \(item.title)").font(.caption).bold().foregroundColor(.white)
+                                Text("  Available on: \(services.map { $0.name }.joined(separator: ", "))")
+                                    .font(.system(size: 9)).foregroundColor(.cyan)
                             }
                         }
                     }

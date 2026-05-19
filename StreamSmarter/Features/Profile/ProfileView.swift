@@ -18,7 +18,7 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
                 Text("Profile")
-                    .font(.largeTitle.bold())
+                    .font(.title.bold())
                     .foregroundColor(.brandBlue)
 
                 Spacer()
@@ -31,7 +31,7 @@ struct ProfileView: View {
                 }
             }
             .padding(.horizontal)
-            .padding(.top, 12)
+            .padding(.top, 8)
             .padding(.bottom, 4)
 
             ScrollView {
@@ -59,9 +59,9 @@ struct ProfileView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 StreamSmarterLogoView(
-                    iconSize: 32,
-                    fontSize: 32,
-                    taglineSize: 10,
+                    iconSize: 24,
+                    fontSize: 24,
+                    taglineSize: 8,
                     onLogoClick: {
                         viewModel.toggleOverridePremium()
                     }

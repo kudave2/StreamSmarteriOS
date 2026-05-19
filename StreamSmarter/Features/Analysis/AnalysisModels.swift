@@ -41,4 +41,5 @@ struct AnalysisResults {
     var totalActiveCost: Double = 0.0
     var optimizedCost: Double = 0.0
     var totalReadyMinutes: Int = 0
+    var multipleActiveServiceShows: [(WatchlistItem, [StreamingService])] = []
 }

@@ -11,10 +11,31 @@ struct AnalysisView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 
-                if profileViewModel.isPremiumUser {
-                    unlockedContent
-                } else {
-                    lockedContent
+                VStack(spacing: 0) {
+                    HStack(alignment: .center, spacing: 12) {
+                        Text("Analysis")
+                            .font(.title.bold())
+                            .foregroundColor(.brandBlue)
+                        
+                        Spacer()
+
+                        NavigationLink {
+                            HelpView()
+                        } label: {
+                            Image(systemName: "questionmark.circle")
+                                .font(.title2)
+                                .foregroundColor(.red)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+
+                    if profileViewModel.isPremiumUser {
+                        unlockedContent
+                    } else {
+                        lockedContent
+                    }
                 }
             }
             .navigationTitle("Analysis")
@@ -22,23 +43,18 @@ struct AnalysisView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     StreamSmarterLogoView(
-                        iconSize: 32,
-                        fontSize: 32,
-                        taglineSize: 10,
+                        iconSize: 24,
+                        fontSize: 24,
+                        taglineSize: 8,
                         onLogoClick: {
                             profileViewModel.toggleOverridePremium()
                         }
                     )
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        HelpView()
-                    } label: {
-                        Image(systemName: "questionmark.circle")
-                            .foregroundColor(.red)
-                    }
-                }
             }
+            .toolbarBackground(Color.white, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
             .onAppear {
                 viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
                 profileViewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))

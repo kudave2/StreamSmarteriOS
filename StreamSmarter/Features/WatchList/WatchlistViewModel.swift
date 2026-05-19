@@ -352,6 +352,9 @@ final class WatchlistViewModel {
             )
         }
 
+        searchQuery = ""
+        searchResults = []
+
         // Discovery loop: Suggest items based on the last addition after the batch completes
         if let lastItem = selections.last {
             await fetchRecommendations(for: lastItem.tmdbResult.id, type: lastItem.itemType)
@@ -700,17 +703,36 @@ final class WatchlistViewModel {
         let pLower = providers.lowercased()
         let sLower = serviceName.lowercased()
         
-        let noise = "(\\+|plus|video|\\s|\\.|-|')"
-        let pRaw = pLower.replacingOccurrences(of: noise, with: "", options: .regularExpression)
-        let sRaw = sLower.replacingOccurrences(of: noise, with: "", options: .regularExpression)
+        // Strip everything except alphanumeric characters
+        let pRaw = pLower.components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
+        let sRaw = sLower.components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
         
-        if sRaw.count > 2 && pRaw.contains(sRaw) { return true }
-        if pRaw.count > 2 && sRaw.contains(pRaw) { return true }
+        // Normalize by removing common "noise" words
+        let noise = ["plus", "video", "tv", "premium", "withads"]
+        var cleanSRaw = sRaw
+        var cleanPRaw = pRaw
+        for word in noise {
+            cleanSRaw = cleanSRaw.replacingOccurrences(of: word, with: "")
+            cleanPRaw = cleanPRaw.replacingOccurrences(of: word, with: "")
+        }
 
-        if sRaw == "appletv" && pRaw.contains("appletv") { return true }
+        if cleanSRaw.count > 2 && cleanPRaw.contains(cleanSRaw) { return true }
+        if cleanPRaw.count > 2 && cleanSRaw.contains(cleanPRaw) { return true }
+
+        // Bundle Logic (Disney/Hulu/ESPN)
+        let bundle = ["disney", "hulu", "espn"]
+        if bundle.contains(where: { cleanSRaw.contains($0) }) && 
+           bundle.contains(where: { cleanPRaw.contains($0) }) {
+            return true
+        }
+
+        // Live TV / Network Mappings (Android-style robust matching)
+        let liveTV = ["youtube", "fubo", "sling", "hulu", "direct"]
+        let networks = ["fox", "abc", "cbs", "nbc", "cw", "fx", "amc", "bravo", "usa", "tbs", "tnt", "discovery"]
         
-        if sRaw.contains("disney") {
-            if pRaw.contains("hulu") || pRaw.contains("espn") { return true }
+        if liveTV.contains(where: { cleanSRaw.contains($0) }) && 
+           networks.contains(where: { cleanPRaw.contains($0) }) {
+            return true
         }
         return false
     }

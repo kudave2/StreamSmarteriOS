@@ -12,7 +12,7 @@ struct SubscriptionsView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
                 Text("Subscriptions")
-                    .font(.largeTitle.bold())
+                    .font(.title.bold())
                     .foregroundColor(.brandBlue)
 
                 Spacer()
@@ -25,7 +25,7 @@ struct SubscriptionsView: View {
                 }
             }
             .padding(.horizontal)
-            .padding(.top, 12)
+            .padding(.top, 8)
             .padding(.bottom, 4)
             
             VStack(alignment: .leading, spacing: 4) {
@@ -94,9 +94,9 @@ struct SubscriptionsView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 StreamSmarterLogoView(
-                    iconSize: 32,
-                    fontSize: 32,
-                    taglineSize: 10
+                    iconSize: 24,
+                    fontSize: 24,
+                    taglineSize: 8
                 )
             }
         }
@@ -223,22 +223,64 @@ struct MainServiceRow: View {
     let cost: Double
     let watchlist: [WatchlistItem]
     let matcher: (String, String?) -> Bool
-    
-    var availableItems: [WatchlistItem] {
-        watchlist.filter {
-            ($0.type == "tv" || $0.type == "movie") && matcher(name, $0.providers)
-        }.sorted(by: { $0.priority < $1.priority })
+
+    private var availableItems: [WatchlistItem] {
+        watchlist.filter { ($0.type == "tv" || $0.type == "movie") && matcher(name, $0.providers) }
+    }
+
+    private var avgPriority: Double {
+        guard !readyItems.isEmpty else { return 0.0 }
+        return Double(readyItems.reduce(0) { $0 + $1.priority }) / Double(readyItems.count)
+    }
+
+    private var readyItems: [WatchlistItem] {
+        availableItems.filter { $0.status == "Ready" }
+            .sorted { $0.priority == $1.priority ? $0.title < $1.title : $0.priority < $1.priority }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
+            // Line 1: Service title and status label
             HStack {
-                VStack(alignment: .leading) {
-                    Text(name).font(.headline).bold().foregroundColor(.white)
-                    Text("Main Service").font(.caption).foregroundColor(.accentYellow)
-                }
+                Text(name).font(.headline.bold()).foregroundColor(.white)
                 Spacer()
-                Text(cost.formatted(.currency(code: "USD"))).foregroundColor(.accentYellow)
+                Text("Main Service").font(.caption).foregroundColor(.accentYellow)
+            }
+
+            // Line 2: Monthly cost
+            Text("Monthly Cost: \(cost.formatted(.currency(code: "USD")))")
+                .font(.subheadline).foregroundColor(.accentYellow)
+
+            Divider().background(Color.white.opacity(0.2))
+
+            HStack {
+                Text("Available to Watch")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.popcornYellow)
+                Spacer()
+                if !readyItems.isEmpty {
+                    Text(String(format: "Avg Priority: %.1f", avgPriority))
+                        .font(.caption).foregroundColor(.gray)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(readyItems) { item in
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•").foregroundColor(.white)
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack {
+                                Text(item.title)
+                                Spacer()
+                                Text("Pri: \(item.priority)")
+                            }
+                            .font(.caption).foregroundColor(.white)
+                            if let year = item.releaseYear {
+                                Text("Released: \(year)").font(.system(size: 8)).foregroundColor(.gray)
+                            }
+                        }
+                    }
+                }
             }
         }
         .padding()
@@ -282,43 +324,99 @@ struct ServiceRow: View {
         }
         return service.isActive ? .green : .red
     }
-    
+
+    private var availableItems: [WatchlistItem] {
+        watchlist.filter { ($0.type == "tv" || $0.type == "movie") && matcher(service.name, $0.providers) }
+    }
+
+    private var avgPriority: Double {
+        guard !readyItems.isEmpty else { return 0.0 }
+        return Double(readyItems.reduce(0) { $0 + $1.priority }) / Double(readyItems.count)
+    }
+
+    private var readyItems: [WatchlistItem] {
+        availableItems.filter { $0.status == "Ready" }
+            .sorted { $0.priority == $1.priority ? $0.title < $1.title : $0.priority < $1.priority }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
+            // Line 1: Service title and status
             HStack {
-                VStack(alignment: .leading) {
-                    Text(service.name).font(.headline).bold()
-                        .foregroundColor(service.isActive || isSharedOrFree ? .white : .gray)
-                    Text(statusText)
-                        .font(.caption).foregroundColor(statusColor)
+                Text(service.name).font(.headline.bold())
+                    .foregroundColor(service.isActive || isSharedOrFree ? .white : .gray)
+                Spacer()
+                Text(statusText).font(.caption).foregroundColor(statusColor)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { onEdit() }
+
+            // Line 2: Monthly or Market cost
+            Group {
+                if isNotActivated {
+                    let mktCost = analysisViewModel.getProjectedCost(for: service)
+                    Text("Market Cost: \(mktCost.formatted(.currency(code: "USD")))")
+                } else {
+                    Text("Monthly Cost: \(service.monthlyCost.formatted(.currency(code: "USD")))")
                 }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    onEdit()
+            }
+            .font(.subheadline).foregroundColor(isNotActivated ? .gray : .accentYellow)
+
+            // Line 3: Start Date
+            Text("Start Date: \(service.startDate, style: .date)")
+                .font(.caption).foregroundColor(.white.opacity(0.8))
+
+            // Line 4: Renew date
+            Text("Renew Date: \(service.renewalDate, style: .date)")
+                .font(.caption).foregroundColor(.brandBlue)
+
+            // Line 5: break line
+            Divider().background(Color.white.opacity(0.2))
+
+            // Line 6: Available title and Avg Priority
+            HStack {
+                Text("Available to Watch")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.popcornYellow)
+                Spacer()
+                if !readyItems.isEmpty {
+                    Text(String(format: "Avg Priority: %.1f", avgPriority))
+                        .font(.caption).foregroundColor(.gray)
                 }
+            }
+
+            // Bullet list
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(readyItems) { item in
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("•").foregroundColor(.white)
+                        VStack(alignment: .leading, spacing: 0) {
+                            HStack {
+                                Text(item.title)
+                                Spacer()
+                                Text("Pri: \(item.priority)")
+                            }
+                            .font(.caption).foregroundColor(.white)
+                            if let year = item.releaseYear {
+                                Text("Released: \(year)").font(.system(size: 8)).foregroundColor(.gray)
+                            }
+                        }
+                    }
+                }
+            }
+
+            HStack {
                 Spacer()
                 if !marketServices.contains(service.name) {
                     Button(action: { showDeleteConfirmation = true }) {
-                        Image(systemName: "trash.circle").foregroundColor(.red)
+                        Image(systemName: "trash.circle").foregroundColor(.red).font(.title3)
                     }
                     .buttonStyle(.plain)
                 }
                 Button(action: onEdit) {
-                    Image(systemName: "pencil.circle").foregroundColor(.accentYellow)
+                    Image(systemName: "pencil.circle").foregroundColor(.accentYellow).font(.title3)
                 }
                 .buttonStyle(.plain)
-            }
-            
-            HStack {
-                if isNotActivated {
-                    let mktCost = analysisViewModel.getProjectedCost(for: service)
-                    Text("Mkt: \(mktCost.formatted(.currency(code: "USD")))")
-                        .foregroundColor(.gray)
-                } else {
-                    Text(service.monthlyCost.formatted(.currency(code: "USD"))).foregroundColor(.accentYellow)
-                }
-                Spacer()
-                Text("Renews: \(service.renewalDate, style: .date)").font(.caption).foregroundColor(.brandBlue)
             }
         }
         .padding()

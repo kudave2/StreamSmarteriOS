@@ -73,12 +73,17 @@ struct OnboardingView: View {
                         .tag(pages.count + 1)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .always))
+                .id(currentPage)
                 
                 // Navigation Button
                 VStack(spacing: 16) {
                     if currentPage < pages.count {
                         Button(action: {
-                            withAnimation { currentPage += 1 }
+                            var transaction = Transaction()
+                            transaction.animation = nil
+                            withTransaction(transaction) {
+                                currentPage += 1
+                            }
                         }) {
                             Text("Continue")
                                 .font(.headline.bold())
@@ -101,7 +106,11 @@ struct OnboardingView: View {
                                 }
                                 await viewModel.updateProfile()
                                 if !viewModel.showValidationError {
-                                    withAnimation { currentPage += 1 }
+                                    var transaction = Transaction()
+                                    transaction.animation = nil
+                                    withTransaction(transaction) {
+                                        currentPage += 1
+                                    }
                                 }
                             }
                         }) {
@@ -141,6 +150,7 @@ struct OnboardingView: View {
                 }
                 .padding(30)
             }
+            .animation(nil, value: currentPage)
         }
         .alert("Configuration Error", isPresented: $viewModel.showValidationError) {
             Button("OK", role: .cancel) { }
