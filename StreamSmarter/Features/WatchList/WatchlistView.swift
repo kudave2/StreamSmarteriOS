@@ -441,17 +441,27 @@ struct HierarchicalWatchlistRow: View {
                 watchOnButtons
             }
             if isExpanded {
-                let seasons = allItems.filter { $0.type == "season" && $0.parentTmdbId == item.tmdbId }
-                    .sorted { $0.seasonNumber < $1.seasonNumber }
-                
-                ForEach(seasons) { season in // Android's SeasonSubCard
-                    SeasonSubCard(
-                        season: season,
-                        allItems: allItems,
-                        onStatusToggle: onStatusToggle,
-                        onSeasonClick: onSeasonClick
-                    )
-                        .padding(.leading, 16)
+                if item.type == "movie" {
+                    if let overview = item.overview, !overview.isEmpty {
+                        Text(overview)
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.8))
+                            .padding(.top, 8)
+                            .padding(.horizontal, 4)
+                    }
+                } else {
+                    let seasons = allItems.filter { $0.type == "season" && $0.parentTmdbId == item.tmdbId }
+                        .sorted { $0.seasonNumber < $1.seasonNumber }
+                    
+                    ForEach(seasons) { season in // Android's SeasonSubCard
+                        SeasonSubCard(
+                            season: season,
+                            allItems: allItems,
+                            onStatusToggle: onStatusToggle,
+                            onSeasonClick: onSeasonClick
+                        )
+                            .padding(.leading, 16)
+                    }
                 }
             }
         }
