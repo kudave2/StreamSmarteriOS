@@ -7,85 +7,173 @@ struct WatchlistView: View {
     @State private var itemToEdit: WatchlistItem?
     @State private var showDeleteConfirmation: WatchlistItem?
     
+    @FocusState private var isSearchFocused: Bool
+    @State private var selectedSeasonForEpisodes: WatchlistItem?
+    @Namespace private var scrollSpace
+    
     var body: some View {
-        VStack(spacing: 0) {
-            // Header / Search Area
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .center, spacing: 12) {
-                    Text("Watchlist")
-                        .font(.title.bold())
-                        .foregroundColor(.brandBlue)
-                    
-                    TmdbLogoView()
-                        .frame(height: 18)
-                    
-                    Spacer()
-
-                    Button {
-                        viewModel.showAddSheet = true
-                    } label: {
-                        Image(systemName: "plus.circle")
-                            .font(.title2)
-                            .foregroundColor(.brandBlue)
+        ZStack {
+            Color.retroTVDark.ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Top Bar (Search and Budget Alert)
+                VStack(spacing: 0) {
+                    if viewModel.selectedTab != .search {
+                        HStack(alignment: .center, spacing: 12) {
+                            Text("Watchlist")
+                                .font(.title.bold())
+                                .foregroundColor(.brandBlue)
+                            
+                            Spacer()
+                            
+                            Button {
+                                viewModel.showAddSheet = true
+                            } label: {
+                                Image(systemName: "plus.circle")
+                                    .font(.title2)
+                                    .foregroundColor(.brandBlue)
+                            }
+                            
+                            NavigationLink {
+                                HelpView()
+                            } label: {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.title2)
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
                     }
 
-                    NavigationLink {
-                        HelpView()
-                    } label: {
-                        Image(systemName: "questionmark.circle")
-                            .font(.title2)
-                            .foregroundColor(.red)
+                    HStack {
+                        RetroSearchField(
+                            searchQuery: $viewModel.searchQuery,
+                            onActivate: {
+                                viewModel.previousTab = viewModel.selectedTab
+                                viewModel.selectedTab = .search
+                            },
+                            onBackClick: {
+                                viewModel.selectedTab = viewModel.previousTab
+                                viewModel.searchQuery = ""
+                                isSearchFocused = false
+                            },
+                            isSearchActive: viewModel.selectedTab == .search,
+                            isFocused: $isSearchFocused
+                        )
+                        .onChange(of: isSearchFocused) { _, isFocused in
+                            // Switch to search tab as soon as the user taps the search bar
+                            if isFocused && viewModel.selectedTab != .search {
+                                viewModel.previousTab = viewModel.selectedTab
+                                viewModel.selectedTab = .search
+                            }
+                        }
+                        .onChange(of: viewModel.searchQuery) { _, newValue in
+                            // Backup: switch to search tab if user somehow starts typing without triggering focus logic
+                            if !newValue.isEmpty && viewModel.selectedTab != .search && isSearchFocused {
+                                viewModel.previousTab = viewModel.selectedTab
+                                viewModel.selectedTab = .search
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(Color.retroTVDark)
+                    
+                    // Budget Alert (from Android)
+                    if let budgetAlert = viewModel.budgetAlert {
+                        Button {
+                            // TODO: Navigate to analysis?
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.white)
+                                Text("LOW SIGNAL: \(budgetAlert.name) renews soon with zero activity. Suspend to save money?")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.curtainRed.opacity(0.9))
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 
-                if let total = viewModel.user?.mainViewingServiceCost {
-                    Text("Current Monthly Cost: \(total.formatted(.currency(code: "USD")))")
-                        .font(.headline)
-                        .foregroundColor(.accentYellow)
-                        .padding(.horizontal, 16)
+                // Main Content Area
+                VStack(alignment: .leading, spacing: 0) {
+                    if viewModel.selectedTab != .search {
+                        Text("MONTHLY BUDGET: \(viewModel.activeTotalCost.formatted(.currency(code: "USD")))")
+                            .font(.system(.caption, design: .monospaced))
+                            .fontWeight(.bold)
+                            .foregroundColor(.popcornYellow)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.black.opacity(0.3))
+                            .cornerRadius(4)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                        
+                        // Channel Label
+                        Text(channelLabel(for: viewModel.selectedTab))
+                            .font(.system(.caption, design: .monospaced))
+                            .fontWeight(.bold)
+                            .foregroundColor(.channelActive)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.black.opacity(0.3))
+                            .cornerRadius(4)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+                    }
+
+                    // Wrap both the Search Results and the Watchlist in the SAME ScrollViewReader
+                    // This ensures the proxy is ready the moment the Watchlist appears.
+                    ScrollViewReader { proxy in
+                        Group {
+                            if viewModel.selectedTab == .search {
+                                SearchResultsTab(results: viewModel.currentTabItems, searchQuery: viewModel.searchQuery) { item in
+                                    isSearchFocused = false // Drop focus first
+                                    // Give focus state a tiny moment to propagate before switching tabs
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        viewModel.handleSearchSelection(item: item)
+                                    }
+                                }
+                            } else {
+                                watchlistList
+                                    .listStyle(.plain)
+                                    .background(Color.retroTVDark)
+                            }
+                        }
+                        .onChange(of: viewModel.pendingScrollItemId) { _, newId in
+                            guard let id = newId else { return }
+                            // Attempt scroll on next main loop pass to ensure List rows are instantiated
+                            DispatchQueue.main.async {
+                                withAnimation(.easeInOut(duration: 1.2)) {
+                                    proxy.scrollTo(id, anchor: .center)
+                                }
+                                viewModel.pendingScrollItemId = nil
+                            }
+                        }
+                    }
                 }
-
-                HStack {
-                    Image(systemName: "magnifyingglass").foregroundColor(.gray)
-                    TextField("Search watchlist...", text: $viewModel.searchQuery)
-                        .textFieldStyle(.plain)
-                        .foregroundColor(.white)
+                
+                // Bottom Tab Bar
+                HStack(spacing: 20) {
+                    channelButton(label: "01", subLabel: "AVAILABLE", tab: .available)
+                    channelButton(label: "02", subLabel: "UNAVAILABLE", tab: .unavailable)
+                    channelButton(label: "03", subLabel: "WATCHED", tab: .watched)
                 }
-                .padding(10)
-                .background(Color.retroGray)
-                .cornerRadius(8)
-                .padding(.horizontal, 16)
+                .padding(.bottom, 20)
+                .padding(.horizontal)
+                .frame(maxWidth: .infinity)
+                .background(Color.retroTVGray)
             }
-            .padding(.vertical, 8)
-            .background(Color.black)
-
-            // Main List
-            List {
-                if viewModel.currentTabItems.isEmpty {
-                    ContentUnavailableView(
-                        "No Items Found",
-                        systemImage: "tv.slash",
-                        description: Text("Try searching for something new or check another tab.")
-                    )
-                    .listRowBackground(Color.clear)
-                }
-
-                ForEach(viewModel.currentTabItems, content: watchlistRow)
-            }
-            .listStyle(.plain)
-            .background(Color.black)
-
-            // Custom Tab Bar
-            HStack(spacing: 0) {
-                tabButton(title: "Available", tab: .available)
-                tabButton(title: "Unavailable", tab: .unavailable)
-                tabButton(title: "Watched", tab: .watched)
-            }
-            .id(viewModel.selectedTab)
-            .padding(.bottom, 20)
-            .background(Color.retroGray)
         }
         .animation(nil, value: viewModel.selectedTab)
+        .environment(viewModel)
         .navigationTitle("Watchlist")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -101,7 +189,7 @@ struct WatchlistView: View {
         .toolbarBackground(Color.white, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.light, for: .navigationBar)
-        .background(Color.black)
+        .background(Color.retroTVDark)
         .onAppear {
             viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
         }
@@ -127,56 +215,154 @@ struct WatchlistView: View {
         } message: {
             Text("This will permanently remove '\(showDeleteConfirmation?.title ?? "")' and its related content.")
         }
+        .sheet(item: $selectedSeasonForEpisodes) { item in
+            SeasonEpisodesSheet(season: item, allItems: viewModel.allItems, onStatusChange: viewModel.updateHierarchyStatus, onDelete: viewModel.deleteHierarchy, onRefreshSeason: viewModel.refreshSeasonEpisodes)
+        }
     }
     
     @ViewBuilder
-    private func watchlistRow(_ item: WatchlistItem) -> some View {
+    private var watchlistList: some View {
+        List {
+            emptyStateSection
+            scrollableRowsSection
+        }
+        .scrollContentBackground(.hidden) // Hides the white system list background
+    }
+    
+    @ViewBuilder
+    private var emptyStateSection: some View {
+        if viewModel.currentTabItems.isEmpty {
+            ContentUnavailableView(
+                "No Items Found",
+                systemImage: "tv.slash",
+                description: Text("Try searching for something new or check another tab.")
+            )
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    @ViewBuilder
+    private var scrollableRowsSection: some View {
+        ForEach(viewModel.currentTabItems) { item in
+            watchlistRow(item, isHighlighted: viewModel.highlightedItemId == item.persistentModelID)
+                .id(item.persistentModelID)
+        }
+    }
+
+    @ViewBuilder
+    private func watchlistRow(_ item: WatchlistItem, isHighlighted: Bool) -> some View {
         HierarchicalWatchlistRow(
             item: item,
             allItems: viewModel.allItems,
             onStatusToggle: { toggledItem, updatedStatus in
                 viewModel.updateHierarchyStatus(toggledItem, newStatus: updatedStatus)
             },
-            onEdit: { clickedItem in itemToEdit = clickedItem },
+            onEdit: { clickedItem in
+                itemToEdit = clickedItem
+            },
             onDelete: { itemToDelete in showDeleteConfirmation = itemToDelete },
-            onToggleNotifications: { itemToFlag in viewModel.toggleNotificationFlag(for: itemToFlag) }
+            onToggleNotifications: { itemToFlag in viewModel.toggleNotificationFlag(for: itemToFlag) },
+            onSeasonClick: { season in
+                selectedSeasonForEpisodes = season
+            },
+            user: viewModel.user,
+            activeServiceNames: viewModel.activeServiceNames,
+            isHighlighted: isHighlighted
         )
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) { viewModel.deleteHierarchy(item) } label: {
-                Label("Delete", systemImage: "trash")
-            }
-            Button { itemToEdit = item } label: {
-                Label("Edit", systemImage: "pencil")
-            }
-            .tint(.blue)
-        }
     }
 
-    private func tabButton(title: String, tab: WatchlistTab) -> some View {
-        Button {
-            var transaction = Transaction()
-            transaction.animation = nil
-            withTransaction(transaction) {
-                viewModel.selectedTab = tab
+    private func channelButton(label: String, subLabel: String, tab: WatchlistTab) -> some View {
+        let isSelected = viewModel.selectedTab == tab
+        return Button {
+            if viewModel.selectedTab == .search || !viewModel.searchQuery.isEmpty {
+                viewModel.searchQuery = ""
             }
+            viewModel.selectedTab = tab
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } label: {
             VStack(spacing: 4) {
-                Text(title)
-                    .font(.caption.bold())
-                    .foregroundColor(viewModel.selectedTab == tab ? .green : .gray)
-                if viewModel.selectedTab == tab {
-                    Rectangle()
-                        .frame(width: 20, height: 2)
-                        .foregroundColor(.accentYellow)
-                } else {
-                    Spacer().frame(height: 2)
+                Text(label)
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(isSelected ? .channelActive : .gray)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(isSelected ? Color.channelActive.opacity(0.15) : Color.black.opacity(0.2))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(isSelected ? Color.channelActive : Color.gray.opacity(0.5), lineWidth: 1)
+                    )
+                
+                Text(subLabel)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(isSelected ? .channelActive : .gray)
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private extension WatchlistView {
+    func channelLabel(for tab: WatchlistTab) -> String {
+        switch tab {
+        case .available: return "CHANNEL 01: AVAILABLE"
+        case .unavailable: return "CHANNEL 02: UNAVAILABLE"
+        case .watched: return "CHANNEL 03: WATCHED"
+        case .search: return "CHANNEL 04: SEARCH" // Should not be visible, but for completeness
+        }
+    }
+}
+
+struct RetroSearchField: View {
+    @Binding var searchQuery: String
+    let onActivate: () -> Void
+    let onBackClick: () -> Void
+    let isSearchActive: Bool
+    
+    @FocusState.Binding var isFocused: Bool
+    
+    var body: some View {
+        HStack {
+            if isSearchActive {
+                Button(action: onBackClick) {
+                    Image(systemName: "arrow.backward")
+                        .foregroundColor(.gray)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            HStack {
+                Image(systemName: "magnifyingglass").foregroundColor(.gray)
+                TextField("Search Watchlist...", text: $searchQuery)
+                    .textFieldStyle(.plain)
+                    .foregroundColor(.white)
+                    .focused($isFocused)
+                    .overlay(
+                        Text("Search Watchlist...")
+                            .foregroundColor(.gray)
+                            .opacity(searchQuery.isEmpty && !isFocused ? 1 : 0),
+                        alignment: .leading
+                    )
+            }
+            .onTapGesture {
+                // Fixed: If not active, trigger activation logic instead of back click
+                if !isSearchActive {
+                    onActivate()
+                    isFocused = true
+                }
+            }
+            .padding(10)
+            .background(Color.retroTVGray)
+            .cornerRadius(8)
+            if !searchQuery.isEmpty {
+                Button(action: { searchQuery = "" }) {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(.gray)
+                }
+            }
         }
     }
 }
@@ -212,291 +398,287 @@ struct HierarchicalWatchlistRow: View {
     let onEdit: (WatchlistItem) -> Void
     let onDelete: (WatchlistItem) -> Void
     let onToggleNotifications: (WatchlistItem) -> Void
+    let onSeasonClick: (WatchlistItem) -> Void
+    let user: User?
+    let activeServiceNames: [String]
+    let isHighlighted: Bool // New property
     
+    @Environment(WatchlistViewModel.self) private var viewModel // Inject ViewModel from environment
     @State private var isExpanded = false
+    @State private var currentHighlightAlpha: Double = 0.0 // For blinking effect
     
     var body: some View {
-        VStack(spacing: 2) {
-            Group {
-                HStack(alignment: .center) {
-                    // Tappable area for expansion
-                    Button {
-                        if item.type == "tv" { isExpanded.toggle() }
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(item.title).font(.headline).bold().foregroundColor(.black)
-                                Text(item.type.uppercased())
-                                    .font(.caption).foregroundColor(.black.opacity(0.7))
-                                Text("Priority: \(priorityLabel)")
-                                    .font(.caption).foregroundColor(.black.opacity(0.7))
-                                
-                                if item.status == "Watched", let watchedOn = item.watchedOn {
-                                    Text("Watched on \(watchedOn)")
-                                        .font(.caption2).italic().foregroundColor(.black.opacity(0.6))
-                                }
-                                
-                                if item.type == "tv" {
-                                    let episodes = allItems.filter {
-                                        $0.type == "episode" &&
-                                        $0.parentTmdbId == item.tmdbId &&
-                                        $0.status == "Ready"
-                                    }
-                                    let totalMins = episodes.compactMap { $0.runtime }.reduce(0, +)
-                                    if totalMins > 0 {
-                                        Text("Total Time Left: \(totalMins / 60)h \(totalMins % 60)m")
-                                            .font(.caption).bold().foregroundColor(.blue)
-                                    }
-                                }
-                            }
-                            Spacer()
-                            if item.type == "tv" {
-                                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                                    .foregroundColor(.black)
-                            }
-                        }
-                        .contentShape(Rectangle()) // Make the entire HStack tappable
-                    }
-                    .buttonStyle(.plain) // Make it look like regular content, not a button
-                    
-                    // Notification Flag Toggle
-                    if item.type == "tv" {
-                        Button(action: { onToggleNotifications(item) }) {
-                            Image(systemName: item.isFlaggedForNotifications ? "bell.fill" : "bell")
-                                .foregroundColor(item.isFlaggedForNotifications ? .accentYellow : .gray)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    // Action buttons - these should work independently
-                    Button(action: { onEdit(item) }) {
-                        Image(systemName: "pencil.circle").foregroundColor(.brandBlue)
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Button(action: { onDelete(item) }) {
-                        Image(systemName: "trash.circle").foregroundColor(.red)
-                    }
-                    .buttonStyle(.plain)
-                    
-                    HStack(spacing: 4) {
-                        Text(item.status)
-                            .font(.caption2)
-                            .foregroundColor(item.status == "Watched" ? .darkGray : .blue)
-                        
-                        Toggle("", isOn: Binding(
-                            get: { item.status == "Watched" },
-                            set: { onStatusToggle(item, $0 ? "Watched" : "Ready") }
-                        ))
-                        .labelsHidden()
-                        .scaleEffect(0.8)
+        VStack(alignment: .leading, spacing: 0) {
+            // Top Section: Title, Priority, Status Toggle
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.title).font(.headline).bold().foregroundColor(.white)
+                    priorityChip
+                    watchedOnText
+                    if item.type == "tv" { remainingTimeView }
+                    if let providers = item.providers, !providers.isEmpty {
+                        Text(providers.uppercased())
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundColor(.lightGray)
+                            .lineLimit(1)
                     }
                 }
-                
-                if let providers = item.providers {
-                    Text("Streaming on: \(providers)")
-                        .font(.caption2)
-                        .foregroundColor(.blue)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                
-                if let airDate = item.airDate {
-                    Text("Air Date: \(airDate.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.caption2)
-                        .foregroundColor(.black.opacity(0.7))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                Spacer()
+                statusTextAndToggle
+            }
+            .padding(.bottom, 10)
+            
+            Divider().background(Color.black.opacity(0.2)) // Android's HorizontalDivider
+                .padding(.vertical, 4)
+            
+            HStack { // Bottom action row
+                leftActionButtons
+                Spacer()
+                expandCollapseButton
             }
             
+            if !matchingServices.isEmpty && item.status == "Ready" {
+                watchOnButtons
+            }
             if isExpanded {
                 let seasons = allItems.filter { $0.type == "season" && $0.parentTmdbId == item.tmdbId }
                     .sorted { $0.seasonNumber < $1.seasonNumber }
                 
-                ForEach(seasons) { season in
-                    SeasonRow(
+                ForEach(seasons) { season in // Android's SeasonSubCard
+                    SeasonSubCard(
                         season: season,
                         allItems: allItems,
                         onStatusToggle: onStatusToggle,
-                        onDelete: onDelete // Pass the closure directly
+                        onSeasonClick: onSeasonClick
                     )
                         .padding(.leading, 16)
                 }
             }
         }
         .padding(8)
-        .background(rowBackgroundColor)
+        .background(backgroundCardColor)
+        .overlay( // Android's border
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.black.opacity(0.5), lineWidth: 1)
+        )
         .cornerRadius(8)
         .padding(.vertical, 1)
+        .onTapGesture {
+            isExpanded.toggle()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+        .onAppear {
+            if isHighlighted { startBlinking() }
+        }
+        .onChange(of: isHighlighted) { _, newVal in
+            if newVal {
+                startBlinking()
+            } else {
+                currentHighlightAlpha = 0.0
+            }
+        }
     }
     
+    @ViewBuilder
+    private var actionButtonsRow: some View {
+        leftActionButtons
+        Spacer()
+        expandCollapseButton
+    }
+    
+    private func startBlinking() {
+        Task {
+            for _ in 0..<5 { // Blink 5 times
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    currentHighlightAlpha = 1.0
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    currentHighlightAlpha = 0.0
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+        }
+    }
+
+    private var matchingServices: [String] {
+        let providers = item.providers ?? ""
+        var matches = [String]()
+        
+        if let mainService = user?.mainViewingService,
+           viewModel.isServiceMatch(normalizedServiceName: viewModel.normalizeServiceName(mainService), providers: providers) {
+            matches.append(mainService)
+        }
+        // Iterate through original service names, but use normalized versions for matching
+        matches.append(contentsOf: viewModel.services.filter { $0.isActive && $0.name != user?.mainViewingService && viewModel.isServiceMatch(normalizedServiceName: viewModel.normalizeServiceName($0.name), providers: providers) }.map { $0.name })
+        
+        return Array(Set(matches)) // Use Set to ensure uniqueness
+    }
+    
+    private func isServiceMatch(serviceName: String, providers: String, pattern: String) -> Bool {
+        let pRaw = providers.lowercased().replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        let sRaw = serviceName.lowercased().replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        if sRaw.count > 2 && pRaw.contains(sRaw) { return true }
+        if pRaw.count > 2 && sRaw.contains(pRaw) { return true }
+        if sRaw == "appletv" && pRaw.contains("appletv") { return true }
+        if sRaw.contains("disney") && (pRaw.contains("hulu") || pRaw.contains("espn")) { return true }
+        return false
+    }
+    
+    private var priorityChip: some View {
+        Text(priorityLabel.uppercased())
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .foregroundColor(item.priority == 1 ? .curtainRed : .popcornYellow)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.black.opacity(0.3))
+            .cornerRadius(2)
+    }
+    
+    @ViewBuilder
+    private var statusTextAndToggle: some View {
+        HStack(spacing: 4) {
+            Text(item.status == "Watched" ? "WATCHED" : "READY")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundColor(item.status == "Watched" ? .gray : .channelActive)
+            
+            Toggle("", isOn: Binding(
+                get: { item.status == "Watched" },
+                set: { newValue in
+                    onStatusToggle(item, newValue ? "Watched" : "Ready")
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+            ))
+            .toggleStyle(RetroToggleStyle())
+        }
+    }
+    
+    @ViewBuilder
+    private var watchedOnText: some View {
+        if item.status == "Watched", let watchedOn = item.watchedOn {
+            Text("Watched on \(watchedOn)")
+                .font(.caption2).italic().foregroundColor(.white.opacity(0.6))
+        }
+    }
+    
+    @ViewBuilder
+    private var remainingTimeView: some View {
+        let totalMins = allItems.filter { $0.parentTmdbId == item.tmdbId && $0.type == "episode" && $0.status == "Ready" }.reduce(0) { $0 + ($1.runtime ?? 0) }
+        if totalMins > 0 {
+            Text("TOTAL REMAINING: \(totalMins / 60)H \(totalMins % 60)M")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundColor(.screenGlow)
+        }
+    }
+    
+    @ViewBuilder
+    private var leftActionButtons: some View {
+        // Notification Toggle
+        if item.type == "tv" || item.type == "movie" { // Android allows notifications for movies too
+            Button(action: { onToggleNotifications(item) }) {
+                Image(systemName: item.isFlaggedForNotifications ? "bell.fill" : "bell")
+                    .foregroundColor(item.isFlaggedForNotifications ? .screenGlow : .gray)
+            }
+            .buttonStyle(.plain)
+        }
+
+        // Edit Button
+        Button(action: { onEdit(item) }) {
+            Image(systemName: "pencil.circle").foregroundColor(.gray)
+        }
+        .buttonStyle(.plain)
+        
+        // Delete Button
+        Button(action: { onDelete(item) }) {
+            Image(systemName: "trash.circle").foregroundColor(.curtainRed.opacity(0.7))
+        }
+        .buttonStyle(.plain)
+    }
+    
+    @ViewBuilder
+    private var expandCollapseButton: some View {
+        if item.type == "tv" || item.type == "movie" { // Only show if it has children or details
+            Button {
+                isExpanded.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    Text(isExpanded ? "CLOSE" : (item.type == "movie" ? "DETAILS" : "SEASONS"))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.2))
+                .cornerRadius(4)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
+    @ViewBuilder
+    private var watchOnButtons: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(matchingServices, id: \.self) { serviceName in
+                    WatchOnButton(serviceName: serviceName, itemTitle: item.title)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+    private var backgroundCardColor: some View {
+        let baseColor: Color
+        if item.status == "Watched" {
+            baseColor = .mutedWatchedGray
+        } else if let providers = item.providers, !providers.isEmpty {
+            baseColor = .mutedAvailableGreen
+        } else {
+            baseColor = .mutedUnavailableYellow
+        }
+        return baseColor.overlay(Color.yellow.opacity(currentHighlightAlpha * 0.3))
+    }
+
     private var priorityLabel: String {
         switch item.priority {
         case 1: "Must Watch"
-        case 2: "Soon"
+        case 2: "Watch Soon"
         default: "Later"
         }
     }
-    
-    private var rowBackgroundColor: Color {
-        if item.status == "Watched" { return Color.gray.opacity(0.3) }
-        return .lightGreen
-    }
 }
 
-struct SeasonRow: View {
-    let season: WatchlistItem
-    let allItems: [WatchlistItem]
-    let onStatusToggle: (WatchlistItem, String) -> Void
-    let onDelete: (WatchlistItem) -> Void // Changed to accept WatchlistItem
-    @State private var isExpanded = false
+struct WatchOnButton: View {
+    @Environment(WatchlistViewModel.self) private var viewModel
+    let serviceName: String
+    let itemTitle: String
     
     var body: some View {
-        VStack(spacing: 2) {
-            HStack(alignment: .center) {
-                // Tappable area for expansion
-                Button {
-                    isExpanded.toggle()
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(season.title).font(.subheadline).bold().foregroundColor(.black)
-                            
-                            let episodes = allItems.filter {
-                                $0.type == "episode" &&
-                                $0.parentTmdbId == season.parentTmdbId &&
-                                $0.seasonNumber == season.seasonNumber &&
-                                $0.status == "Ready"
-                            }
-                            let totalMins = episodes.compactMap { $0.runtime }.reduce(0, +)
-                            if totalMins > 0 {
-                                Text("Time Left: \(totalMins / 60)h \(totalMins % 60)m")
-                                    .font(.caption2).foregroundColor(.darkGray)
-                            }
-                            
-                            if let airDate = season.airDate {
-                                Text("Air Date: \(airDate.formatted(date: .abbreviated, time: .omitted))")
-                                    .font(.caption2).foregroundColor(.black.opacity(0.7))
-                            }
-                        }
-                        Spacer()
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .foregroundColor(.black)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                
-                // Delete Button
-                Button(action: { onDelete(season) }) {
-                    Image(systemName: "trash").font(.caption).foregroundColor(.red)
-                }
-                .buttonStyle(.plain)
-
-                // Status Toggle
-                HStack(spacing: 4) {
-                    Text(season.status)
-                        .font(.caption2)
-                        .foregroundColor(season.status == "Watched" ? .darkGray : .blue)
-                    
-                    Toggle("", isOn: Binding(
-                        get: { season.status == "Watched" },
-                        set: { onStatusToggle(season, $0 ? "Watched" : "Ready") }
-                    ))
-                    .labelsHidden()
-                    .scaleEffect(0.7)
-                }
-            }
-            .padding(4)
-            .background(Color.white.opacity(0.5))
-            .cornerRadius(4)
-            
-            if isExpanded {
-                let episodes = allItems.filter {
-                    $0.type == "episode" &&
-                    $0.parentTmdbId == season.parentTmdbId &&
-                    $0.seasonNumber == season.seasonNumber
-                }.sorted { $0.episodeNumber < $1.episodeNumber }
-                
-                ForEach(episodes) { episode in
-                    EpisodeRow(
-                        episode: episode,
-                        onStatusToggle: onStatusToggle,
-                        onDelete: onDelete // Pass the closure directly
-                    )
-                        .padding(.leading, 12)
-                }
-            }
+        Button {
+            viewModel.launchStreamingApp(serviceName: serviceName, title: itemTitle)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            Text("WATCH ON \(serviceName.uppercased())")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(.channelActive)
+                .padding(.horizontal, 12)
+                .frame(height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.channelActive.opacity(0.1))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.channelActive, lineWidth: 1)
+                )
         }
+        .buttonStyle(.plain)
     }
 }
 
-struct EpisodeRow: View {
-    let episode: WatchlistItem
-    let onStatusToggle: (WatchlistItem, String) -> Void
-    let onDelete: (WatchlistItem) -> Void // Changed to accept WatchlistItem
-    @State private var isExpanded = false
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                // Tappable area for expansion
-                Button {
-                    isExpanded.toggle()
-                } label: {
-                    HStack {
-                        let durationStr = episode.runtime != nil ? " (\(episode.runtime!)m)" : ""
-                        Text("E\(episode.episodeNumber): \(episode.title)\(durationStr)")
-                            .font(.caption).bold().foregroundColor(.black)
-                        Spacer()
-                        if episode.overview != nil {
-                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                                .font(.system(size: 10))
-                                .foregroundColor(.black)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                
-                // Delete Button
-                Button(action: { onDelete(episode) }) {
-                    Image(systemName: "trash").font(.system(size: 10)).foregroundColor(.red)
-                }
-                .buttonStyle(.plain)
-
-                // Status Toggle
-                HStack(spacing: 2) {
-                    Text(episode.status)
-                        .font(.system(size: 10))
-                        .foregroundColor(episode.status == "Watched" ? .darkGray : .blue)
-                    
-                    Toggle("", isOn: Binding(
-                        get: { episode.status == "Watched" },
-                        set: { onStatusToggle(episode, $0 ? "Watched" : "Ready") }
-                    ))
-                    .labelsHidden()
-                    .scaleEffect(0.6)
-                }
-            }
-            
-            if isExpanded, let overview = episode.overview {
-                Text(overview).font(.caption2).foregroundColor(.darkGray)
-            }
-            
-            if let airDate = episode.airDate {
-                Text("Air Date: \(airDate.formatted(date: .abbreviated, time: .omitted))")
-                    .font(.caption2)
-                    .foregroundColor(.black.opacity(0.7))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(4)
-        .background(episode.status == "Watched" ? Color.gray.opacity(0.2) : Color.white.opacity(0.3))
-        .cornerRadius(4)
-    }
-}
-
-struct PriorityEditSheet: View {
+struct PriorityEditSheet: View { // Moved from WatchlistView.swift
     @Environment(\.dismiss) var dismiss
     let item: WatchlistItem
     let onSave: (Int) -> Void
@@ -532,5 +714,191 @@ struct PriorityEditSheet: View {
                 }
             }
         }
+    }
+}
+
+struct SeasonSubCard: View { // Moved from WatchlistView.swift
+    let season: WatchlistItem
+    let allItems: [WatchlistItem]
+    let onStatusToggle: (WatchlistItem, String) -> Void
+    let onSeasonClick: (WatchlistItem) -> Void
+    var body: some View {
+        Button {
+            onSeasonClick(season)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(season.title).font(.subheadline.bold()).foregroundColor(.white)
+                    Text("TAP TO VIEW EPISODES").font(.system(size: 10, design: .monospaced)).foregroundColor(.white.opacity(0.6))
+                }
+                Spacer()
+                HStack(spacing: 4) {
+                    Text(season.status == "Watched" ? "WATCHED" : "READY").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(season.status == "Watched" ? .gray : .channelActive)
+                    Toggle("", isOn: Binding(
+                        get: { season.status == "Watched" },
+                        set: { newValue in
+                            onStatusToggle(season, newValue ? "Watched" : "Ready")
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                    ))
+                    .toggleStyle(RetroToggleStyle())
+                }
+                Image(systemName: "chevron.right").foregroundColor(.white.opacity(0.5))
+            }
+            .padding(8).background(Color.white.opacity(0.05)).overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.gray.opacity(0.2), lineWidth: 1)).cornerRadius(4)
+        }.buttonStyle(.plain)
+    }
+}
+
+struct EpisodeSubCard: View { // Moved from WatchlistView.swift
+    let episode: WatchlistItem
+    let onStatusToggle: (WatchlistItem, String) -> Void
+    let onDelete: (WatchlistItem) -> Void
+    @State private var isExpanded = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Button { isExpanded.toggle(); UIImpactFeedbackGenerator(style: .light).impactOccurred() } label: {
+                    HStack {
+                        Text("E\(episode.episodeNumber): \(episode.title)\(episode.runtime != nil ? " (\(episode.runtime!)m)" : "")").font(.caption).bold().foregroundColor(.white)
+                        Spacer()
+                    }.contentShape(Rectangle())
+                }.buttonStyle(.plain)
+                HStack(spacing: 2) {
+                    Text(episode.status == "Watched" ? "WATCHED" : "READY").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(episode.status == "Watched" ? .gray : .channelActive)
+                    Toggle("", isOn: Binding(
+                        get: { episode.status == "Watched" },
+                        set: { newValue in
+                            onStatusToggle(episode, newValue ? "Watched" : "Ready")
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                    ))
+                    .toggleStyle(RetroToggleStyle())
+                }
+                Button(action: { onDelete(episode) }) { 
+                    Image(systemName: "trash").font(.system(size: 10)).foregroundColor(.curtainRed.opacity(0.6)) 
+                }.buttonStyle(.plain)
+            }
+            if isExpanded, let overview = episode.overview { Text(overview).font(.caption2).foregroundColor(.gray).padding(.top, 4) }
+        }
+        .padding(8).background(Color.white.opacity(0.05)).overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.gray.opacity(0.15), lineWidth: 1)).cornerRadius(4)
+    }
+}
+
+struct SeasonEpisodesSheet: View { // Moved from WatchlistView.swift
+    @Environment(\.dismiss) var dismiss
+    let season: WatchlistItem
+    let allItems: [WatchlistItem]
+    let onStatusChange: (WatchlistItem, String) -> Void
+    let onDelete: (WatchlistItem) -> Void
+    let onRefreshSeason: (WatchlistItem) async -> Void
+    
+    var body: some View {
+        let episodes = allItems.filter { $0.type == "episode" && $0.parentTmdbId == season.parentTmdbId && $0.seasonNumber == season.seasonNumber }.sorted { $0.episodeNumber < $1.episodeNumber }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(season.title.uppercased()).font(.headline.bold()).foregroundColor(.popcornYellow)
+                    Text("EPISODE MANIFEST").font(.system(.caption, design: .monospaced)).foregroundColor(.gray)
+                }
+                Spacer()
+                Button { onDelete(season); dismiss() } label: { Image(systemName: "trash").foregroundColor(.curtainRed) }
+            }.padding(.bottom, 12)
+            Divider().background(Color.white.opacity(0.1)).padding(.bottom, 12)
+            ScrollView { VStack(spacing: 8) { ForEach(episodes) { ep in EpisodeSubCard(episode: ep, onStatusToggle: onStatusChange, onDelete: onDelete) } } }
+            Button { dismiss() } label: { 
+                Text("CLOSE").font(.system(.body, design: .monospaced)).foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 12).background(Color.retroTVGray).cornerRadius(4) 
+            }.padding(.top, 16)
+        }
+        .padding()
+        .background(Color.retroTVDark.ignoresSafeArea())
+        .task { 
+            if episodes.contains(where: { $0.overview == nil || $0.runtime == nil }) { 
+                await onRefreshSeason(season) 
+            } 
+        }
+    }
+}
+
+struct RetroNoSignalGraphic: View { // Moved from WatchlistView.swift
+    let message: String
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "antenna.radiowaves.left.and.right.slash").font(.largeTitle).foregroundColor(.gray)
+            Text(message).font(.system(.body, design: .monospaced)).foregroundColor(.gray).multilineTextAlignment(.center)
+        }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(24)
+    }
+}
+
+struct RetroToggleStyle: ToggleStyle { // Moved from WatchlistView.swift
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                configuration.isOn.toggle()
+            }
+        } label: {
+            ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                Capsule()
+                    .fill(configuration.isOn ? Color.gray.opacity(0.3) : Color.channelActive.opacity(0.3))
+                    .frame(width: 28, height: 14)
+                
+                Circle()
+                    .fill(configuration.isOn ? Color.gray : Color.channelActive)
+                    .frame(width: 12, height: 12)
+                    .padding(.horizontal, 1)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+extension Array { // Moved from WatchlistView.swift (and made conditional)
+    func sortedBy<Value: Comparable>(_ keyPath: KeyPath<Element, Value>) -> [Element] {
+        self.sorted { $0[keyPath: keyPath] < $1[keyPath: keyPath] }
+    }
+}
+
+struct SearchResultsTab: View { // Moved from WatchlistView.swift
+    let results: [WatchlistItem]
+    let searchQuery: String
+    let onItemClick: (WatchlistItem) -> Void
+    
+    var body: some View {
+        if results.isEmpty { RetroNoSignalGraphic(message: searchQuery.isEmpty ? "IDLE: START TYPING" : "SEARCH ERROR: NO MATCHES") }
+        else {
+            List {
+                ForEach(results) { item in
+                    Button { onItemClick(item) } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                highlightedText(text: item.title, query: searchQuery)
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                Text("\(item.type.uppercased()) • \(item.status)").font(.caption).foregroundColor(.lightGray)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundColor(.gray)
+                        }.padding(12).background(Color.white.opacity(0.05)).overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2), lineWidth: 1)).cornerRadius(8)
+                    }.buttonStyle(.plain).listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                }
+            }.listStyle(.plain).background(Color.retroTVDark)
+        }
+    }
+    
+    private func highlightedText(text: String, query: String) -> Text {
+        guard !query.isEmpty else { return Text(text) }
+        var attributedString = AttributedString(text)
+        let lowerText = text.lowercased()
+        let lowerQuery = query.lowercased()
+        
+        if let range = lowerText.range(of: lowerQuery) {
+            let start = AttributedString.Index(range.lowerBound, within: attributedString)
+            let end = AttributedString.Index(range.upperBound, within: attributedString)
+            if let start = start, let end = end {
+                attributedString[start..<end].backgroundColor = .popcornYellow.opacity(0.6)
+            }
+        }
+        return Text(attributedString)
     }
 }

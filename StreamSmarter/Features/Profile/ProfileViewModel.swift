@@ -65,7 +65,7 @@ final class ProfileViewModel {
             let services = try repository.fetchStreamingServices()
             let now = Date()
             activeServicesCount = services.filter {
-                $0.monthlyCost > 0 && $0.startDate <= now && $0.renewalDate >= now
+                $0.isActive || now < $0.renewalDate
             }.count
         } catch {}
     }

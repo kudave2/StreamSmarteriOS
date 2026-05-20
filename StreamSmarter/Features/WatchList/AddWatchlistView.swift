@@ -9,11 +9,12 @@ extension TmdbEpisode: Identifiable {}
 struct AddWatchlistView: View {
     @Environment(\.dismiss) var dismiss
     @Bindable var viewModel: WatchlistViewModel
+    @FocusState private var isFocused: Bool // Add FocusState here
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color.retroTVDark.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Search Input Area
@@ -22,6 +23,13 @@ struct AddWatchlistView: View {
                         TextField("Search Movies & TV Shows...", text: $viewModel.searchQuery)
                             .textFieldStyle(.plain)
                             .foregroundColor(.white)
+                            .focused($isFocused)
+                            .overlay(
+                                Text("Search Movies & TV Shows...")
+                                    .foregroundColor(.gray)
+                                    .opacity(viewModel.searchQuery.isEmpty && !isFocused ? 1 : 0),
+                                alignment: .leading
+                            )
                             .autocorrectionDisabled()
                             .onChange(of: viewModel.searchQuery) { _, newValue in
                                 Task { await viewModel.searchTmdb(newValue) }
@@ -36,7 +44,7 @@ struct AddWatchlistView: View {
                         }
                     }
                     .padding(10)
-                    .background(Color.retroGray)
+                    .background(Color.retroTVGray)
                     .cornerRadius(10)
                     .padding()
 
@@ -133,11 +141,21 @@ struct AddWatchlistView: View {
                     }
                 }
             }
-            .navigationTitle("Add Content")
+            .toolbarBackground(Color.white, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    StreamSmarterLogoView(
+                        iconSize: 24,
+                        fontSize: 24,
+                        taglineSize: 8
+                    )
+                }
+                
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }.foregroundColor(.accentYellow)
+                    Button("Close") { dismiss() }.foregroundColor(.brandBlue)
                 }
             }
             .sheet(item: $viewModel.selectedResult) { result in

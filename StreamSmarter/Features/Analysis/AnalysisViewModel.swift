@@ -128,8 +128,8 @@ final class AnalysisViewModel {
             
             // 1. Determine Management Services (Active + Virtual Main Service)
             let activeServices = services.filter { service in
-                let renewalThreshold = service.renewalDate.addingTimeInterval(-24 * 60 * 60)
-                return now >= service.startDate && now <= renewalThreshold && service.monthlyCost > 0.0
+                // Sync with Android: Active if flag is set OR if we are still before the renewal date
+                return service.isActive || now < service.renewalDate
             }
             
             var managementList = activeServices
@@ -412,41 +412,17 @@ final class AnalysisViewModel {
     }
     
     func isServiceMatch(serviceName: String, providers: String) -> Bool {
-        let pLower = providers.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        let sLower = serviceName.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Strip everything except alphanumeric characters
-        let pRaw = pLower.components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
-        let sRaw = sLower.components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
-        
-        // Normalize by removing common "noise" words
-        let noise = ["plus", "video", "tv", "premium", "withads"]
-        var cleanSRaw = sRaw
-        var cleanPRaw = pRaw
-        for word in noise {
-            cleanSRaw = cleanSRaw.replacingOccurrences(of: word, with: "")
-            cleanPRaw = cleanPRaw.replacingOccurrences(of: word, with: "")
-        }
+        // Sync with Android Regex: (\\+|plus|video|\\s|\\.|-|')
+        let pattern = "[\\+\\s\\.\\-' ]|plus|video"
+        let pRaw = providers.lowercased().replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        let sRaw = serviceName.lowercased().replacingOccurrences(of: pattern, with: "", options: .regularExpression)
 
-        if cleanSRaw.count > 2 && cleanPRaw.contains(cleanSRaw) { return true }
-        if cleanPRaw.count > 2 && cleanSRaw.contains(cleanPRaw) { return true }
-
-        // Bundle Logic (Disney/Hulu/ESPN)
-        let bundle = ["disney", "hulu", "espn"]
-        if bundle.contains(where: { cleanSRaw.contains($0) }) && 
-           bundle.contains(where: { cleanPRaw.contains($0) }) {
-            return true
-        }
-
-        // Live TV / Network Mappings (Android-style robust matching)
-        let liveTV = ["youtube", "fubo", "sling", "hulu", "direct"]
-        let networks = ["fox", "abc", "cbs", "nbc", "cw", "fx", "amc", "bravo", "usa", "tbs", "tnt", "discovery"]
+        if sRaw.count > 2 && pRaw.contains(sRaw) { return true }
+        if pRaw.count > 2 && sRaw.contains(pRaw) { return true }
         
-        if liveTV.contains(where: { cleanSRaw.contains($0) }) && 
-           networks.contains(where: { cleanPRaw.contains($0) }) {
-            return true
-        }
-        
+        // Special cases from Android watchlistScreen.kt
+        if sRaw == "appletv" && pRaw.contains("appletv") { return true }
+        if sRaw.contains("disney") && (pRaw.contains("hulu") || pRaw.contains("espn")) { return true }
         return false
     }
     

@@ -225,7 +225,7 @@ struct MainServiceRow: View {
     let matcher: (String, String?) -> Bool
 
     private var availableItems: [WatchlistItem] {
-        watchlist.filter { ($0.type == "tv" || $0.type == "movie") && matcher(name, $0.providers) }
+        watchlist.filter { ($0.type == "tv" || $0.type == "movie") && matcher(name, $0.providers) } // This matcher is passed from VM
     }
 
     private var avgPriority: Double {
@@ -299,7 +299,7 @@ struct ServiceRow: View {
     let onEdit: () -> Void
     let onDelete: () -> Void
     
-    @State private var showDeleteConfirmation = false
+    @State private var showDeleteConfirmation = false // This is a local state, not directly related to VM
     
     var isNotActivated: Bool {
         return service.monthlyCost == 0.0 && !service.isActive
@@ -326,7 +326,7 @@ struct ServiceRow: View {
     }
 
     private var availableItems: [WatchlistItem] {
-        watchlist.filter { ($0.type == "tv" || $0.type == "movie") && matcher(service.name, $0.providers) }
+        watchlist.filter { ($0.type == "tv" || $0.type == "movie") && matcher(service.name, $0.providers) } // This matcher is passed from VM
     }
 
     private var avgPriority: Double {

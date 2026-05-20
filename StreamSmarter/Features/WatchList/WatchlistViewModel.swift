@@ -21,14 +21,45 @@ struct WatchlistSelection {
 final class WatchlistViewModel {
     private var repository: StreamSmarterRepository?
     
-    var allItems: [WatchlistItem] = []
+    var allItems: [WatchlistItem] = [] {
+        didSet {
+            // When allItems changes, re-evaluate the filtered and sorted list
+            // This ensures that even if search query is stable, new data triggers updates
+            updateFilteredAndSortedItems()
+        }
+    }
+    
+    // The search query bound to the TextField
+    var searchQuery: String = "" {
+        didSet {
+            if searchQuery.isEmpty {
+                searchDebounceTask?.cancel()
+                debouncedSearchQuery = ""
+                updateFilteredAndSortedItems()
+            } else {
+                searchDebounceTask?.cancel()
+                scheduleSearchDebounce()
+            }
+        }
+    }
+    
+    var analysisResults: AnalysisResults? // To get budget alert
     var services: [StreamingService] = []
     var user: User?
     
-    var selectedTab: WatchlistTab = .available
-    var searchQuery: String = ""
-    
+    var selectedTab: WatchlistTab = .available {
+        didSet {
+            updateCurrentTabItems()
+        }
+    }
+    // Internal state for debounced search, used by filteredAndSortedItems
+    private var debouncedSearchQuery: String = ""
+    private var searchDebounceTask: Task<Void, Never>?
+    var highlightedItemId: PersistentIdentifier?
+    var pendingScrollItemId: PersistentIdentifier?
     // For Add Flow
+    var previousTab: WatchlistTab = .available // To return after search
+    
     var showAddSheet: Bool = false
     var searchResults: [TmdbSearchResult] = []
     var trendingResults: [TmdbSearchResult] = []
@@ -37,6 +68,7 @@ final class WatchlistViewModel {
     var showApiKeyError: Bool = false
     var selectedResult: TmdbSearchResult? // Added to manage the detail sheet state
     var isSearching: Bool = false
+    
     private let backgroundTaskID = "com.streamsmarter.refreshAirDates"
     
     func setup(repository: StreamSmarterRepository) {
@@ -51,27 +83,71 @@ final class WatchlistViewModel {
         }
     }
     
+    private func scheduleSearchDebounce() {
+        searchDebounceTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    self.debouncedSearchQuery = self.searchQuery
+                    self.updateFilteredAndSortedItems() // Trigger update after debounce
+                }
+            } catch { /* Task was cancelled */ }
+        }
+    }
+    
+    
     func refreshData() {
         guard let repository else { return }
         do {
             self.allItems = try repository.fetchWatchlistItems()
             self.services = try repository.fetchStreamingServices()
             self.user = try repository.getUser()
+            updateFilteredAndSortedItems() // Initial update
         } catch {}
     }
     
     // MARK: - Partitioning & Sorting
     
-    private var activeServiceNames: [String] {
+    var activeTotalCost: Double {
+        let streamingCost = services.filter { $0.isActive }.reduce(0) { $1.monthlyCost + $0 }
+        let mainCost = user?.mainViewingServiceCost ?? 0.0
+        return streamingCost + mainCost
+    }
+    
+    var budgetAlert: StreamingService? {
+        let now = Date()
+        let sevenDaysFromNow = now.addingTimeInterval(7 * 24 * 60 * 60)
+        
+        return services.first { service in
+            guard service.isActive && service.renewalDate > now && service.renewalDate <= sevenDaysFromNow else { return false }
+            let hasReadyItems = allItems.contains { isServiceMatch(normalizedServiceName: normalizeServiceName(service.name), providers: $0.providers ?? "") && $0.status == "Ready" }
+            return !hasReadyItems
+        }
+    }
+    
+    // Helper to normalize service names (moved from HierarchicalWatchlistRow)
+    func normalizeServiceName(_ name: String) -> String {
+        let pattern = "[\\+\\s\\.\\-' ]|plus|video"
+        return name.lowercased().replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+    }
+    
+    var activeServiceNames: [String] {
         let now = Date()
         var names = services.filter { 
-            $0.isActive || 
-            $0.renewalDate > now || 
-            ($0.monthlyCost > 0.0 && $0.monthlyCost < 1.0) // Include Shared/Free services
-        }.map { $0.name }
+            $0.isActive || now < $0.renewalDate
+        }.map { normalizeServiceName($0.name) } // Normalize here
         
-        if let main = user?.mainViewingService { names.append(main) }
+        if let main = user?.mainViewingService { names.append(normalizeServiceName(main)) } // Normalize here
         return Array(Set(names))
+    }
+    
+    // Optimized isServiceMatch to accept already normalized service names
+    func isServiceMatch(normalizedServiceName: String, providers: String) -> Bool {
+        let pattern = "[\\+\\s\\.\\-' ]|plus|video"
+        let pRaw = providers.lowercased().replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        let sRaw = normalizedServiceName // Already normalized
+        return sRaw.count > 2 && pRaw.contains(sRaw) || pRaw.count > 2 && sRaw.contains(pRaw) || (sRaw == "appletv" && pRaw.contains("appletv")) || (sRaw.contains("disney") && (pRaw.contains("hulu") || pRaw.contains("espn")))
     }
     
     var filteredAndSortedItems: [WatchlistItem] {
@@ -80,49 +156,94 @@ final class WatchlistViewModel {
         let filtered = searchQuery.isEmpty ? topLevel : topLevel.filter { 
             $0.title.localizedCaseInsensitiveContains(searchQuery) 
         }
-        
-        let tenDaysAgo = Date().addingTimeInterval(-10 * 24 * 60 * 60)
-        
-        return filtered.sorted { (a, b) -> Bool in
-            // Boost logic: check for recent activity in episodes
-            let aActivity = a.type == "tv" ? (allItems.filter { $0.parentTmdbId == a.tmdbId && $0.type == "episode" && $0.status == "Watched" }.compactMap { $0.watchedDate }.max() ?? .distantPast) : .distantPast
-            let bActivity = b.type == "tv" ? (allItems.filter { $0.parentTmdbId == b.tmdbId && $0.type == "episode" && $0.status == "Watched" }.compactMap { $0.watchedDate }.max() ?? .distantPast) : .distantPast
+
+        let tenDaysAgo = Date().addingTimeInterval(-10 * 24 * 60 * 60 * 1000 / 1000) // 10 days
+
+        // Map items to metadata for sorting (matches Android derivedStateOf logic)
+        let itemsWithMetadata = filtered.map { item -> (item: WatchlistItem, lastActivity: Date, isAlmostDone: Bool) in
+            let episodes = allItems.filter { $0.parentTmdbId == item.tmdbId && $0.type == "episode" }
+            let lastActivity = episodes.filter { $0.status == "Watched" }.compactMap { $0.watchedDate }.max() ?? .distantPast
+            let readyCount = episodes.filter { $0.status == "Ready" }.count
+            let isAlmostDone = item.type == "tv" && (1...2).contains(readyCount)
             
-            let aIsRecent = aActivity > tenDaysAgo
-            let bIsRecent = bActivity > tenDaysAgo
+            return (item, lastActivity, isAlmostDone)
+        }
+
+        let sorted = itemsWithMetadata.sorted { a, b in
+            if a.isAlmostDone != b.isAlmostDone { return a.isAlmostDone && !b.isAlmostDone }
+            if a.isAlmostDone { return a.item.title < b.item.title }
+            
+            let aIsRecent = a.lastActivity > tenDaysAgo
+            let bIsRecent = b.lastActivity > tenDaysAgo
             
             if aIsRecent != bIsRecent { return aIsRecent }
-            if aIsRecent && bIsRecent { return aActivity > bActivity }
+            if aIsRecent { return a.lastActivity > b.lastActivity }
             
-            if a.priority != b.priority { return a.priority < b.priority }
-            return a.title < b.title
+            if a.item.priority != b.item.priority { return a.item.priority < b.item.priority }
+            return a.item.title < b.item.title
         }
+        
+        return sorted.map { $0.item }
     }
     
-    var availableReady: [WatchlistItem] {
-        filteredAndSortedItems.filter { $0.status == "Ready" && isAvailableOnActive($0) }
-    }
+    // Store the computed filtered and sorted items to avoid re-computation
+    private var _filteredAndSortedItems: [WatchlistItem] = []
+    var availableReady: [WatchlistItem] = []
+    var unavailableReady: [WatchlistItem] = []
+    var watchedItems: [WatchlistItem] = []
+    var currentTabItems: [WatchlistItem] = []
     
-    var unavailableReady: [WatchlistItem] {
-        filteredAndSortedItems.filter { $0.status == "Ready" && !isAvailableOnActive($0) }
+    private func updateFilteredAndSortedItems() {
+        let topLevel = allItems.filter { $0.type == "movie" || $0.type == "tv" }
+        
+        let filtered = debouncedSearchQuery.isEmpty ? topLevel : topLevel.filter {
+            $0.title.localizedCaseInsensitiveContains(debouncedSearchQuery)
+        }
+        
+        let tenDaysAgo = Date().addingTimeInterval(-10 * 24 * 60 * 60 * 1000 / 1000)
+        
+        let itemsWithMetadata = filtered.map { item -> (item: WatchlistItem, lastActivity: Date, isAlmostDone: Bool) in
+            let episodes = allItems.filter { $0.parentTmdbId == item.tmdbId && $0.type == "episode" }
+            let lastActivity = episodes.filter { $0.status == "Watched" }.compactMap { $0.watchedDate }.max() ?? .distantPast
+            let readyCount = episodes.filter { $0.status == "Ready" }.count
+            let isAlmostDone = item.type == "tv" && (1...2).contains(readyCount)
+            return (item, lastActivity, isAlmostDone)
+        }
+        
+        _filteredAndSortedItems = itemsWithMetadata.sorted { a, b in
+            if a.isAlmostDone != b.isAlmostDone { return a.isAlmostDone && !b.isAlmostDone }
+            if a.isAlmostDone { return a.item.title < b.item.title }
+            let aIsRecent = a.lastActivity > tenDaysAgo
+            let bIsRecent = b.lastActivity > tenDaysAgo
+            if aIsRecent != bIsRecent { return aIsRecent }
+            if aIsRecent { return a.lastActivity > b.lastActivity }
+            if a.item.priority != b.item.priority { return a.item.priority < b.item.priority }
+            return a.item.title < b.item.title
+        }.map { $0.item }
+        
+        // Now, filter this once for each tab
+        availableReady = _filteredAndSortedItems.filter { $0.status == "Ready" && isAvailableOnActive($0) }
+        unavailableReady = _filteredAndSortedItems.filter { $0.status == "Ready" && !isAvailableOnActive($0) }
+        watchedItems = _filteredAndSortedItems.filter { $0.status == "Watched" }
+        
+        updateCurrentTabItems()
     }
-    
-    var watchedItems: [WatchlistItem] {
-        filteredAndSortedItems.filter { $0.status == "Watched" }
-    }
-    
-    var currentTabItems: [WatchlistItem] {
+
+    private func updateCurrentTabItems() {
+        // Update currentTabItems based on the selected tab
         switch selectedTab {
-        case .available: return availableReady
-        case .unavailable: return unavailableReady
-        case .watched: return watchedItems
-        case .search: return filteredAndSortedItems
+        case .available: currentTabItems = availableReady
+        case .unavailable: currentTabItems = unavailableReady
+        case .watched: currentTabItems = watchedItems
+        case .search: currentTabItems = _filteredAndSortedItems
         }
     }
     
     private func isAvailableOnActive(_ item: WatchlistItem) -> Bool {
         guard let providers = item.providers else { return false }
-        return activeServiceNames.contains { isServiceMatch(serviceName: $0, providers: providers) }
+        return activeServiceNames.contains { normalizedService in
+            isServiceMatch(normalizedServiceName: normalizedService, providers: providers)
+        }
     }
     
     // MARK: - Hierarchy Logic
@@ -199,13 +320,13 @@ final class WatchlistViewModel {
         let mainService = user?.mainViewingService
         guard let providers = item.providers, providers != "None Found" else { return mainService }
         
-        if let main = mainService, isServiceMatch(serviceName: main, providers: providers) {
+        if let main = mainService, isServiceMatch(normalizedServiceName: normalizeServiceName(main), providers: providers) {
             return main
         }
         
         let activeServices = services.filter { $0.isActive }.sorted { $0.monthlyCost < $1.monthlyCost }
         for service in activeServices {
-            if isServiceMatch(serviceName: service.name, providers: providers) {
+            if isServiceMatch(normalizedServiceName: normalizeServiceName(service.name), providers: providers) {
                 return service.name
             }
         }
@@ -251,6 +372,39 @@ final class WatchlistViewModel {
             }
             refreshData()
         } catch {}
+    }
+    
+    func handleSearchSelection(item: WatchlistItem) {
+        // Dismiss keyboard first to avoid layout jumps during transition
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+
+        let targetTab: WatchlistTab
+        if item.status == "Watched" {
+            targetTab = .watched
+        } else if activeServiceNames.contains(where: { isServiceMatch(normalizedServiceName: $0, providers: item.providers ?? "") }) {
+            targetTab = .available
+        } else {
+            targetTab = .unavailable
+        }
+
+        // Clear highlight from previous selections
+        highlightedItemId = item.persistentModelID
+        
+        // Switch tab and clear query simultaneously to trigger the View swap
+        self.selectedTab = targetTab
+        self.searchQuery = "" 
+
+        // Delay the scroll request to allow the View to switch and render the new List rows
+        Task {
+            try? await Task.sleep(nanoseconds: 850_000_000) // 0.85s for safer rendering
+            self.pendingScrollItemId = item.persistentModelID
+            
+            // Clear highlight after 2.5 seconds
+            try await Task.sleep(nanoseconds: 2_500_000_000)
+            if highlightedItemId == item.persistentModelID {
+                highlightedItemId = nil
+            }
+        }
     }
     
     // MARK: - Search & Add
@@ -618,6 +772,61 @@ final class WatchlistViewModel {
         refreshData()
     }
     
+    func refreshSeasonEpisodes(_ season: WatchlistItem) async {
+        guard let repository, let apiKey = user?.tmdbApiKey else { return }
+        if let sDetails = await repository.getTvSeasonDetails(tvId: season.parentTmdbId, seasonNumber: season.seasonNumber, apiKey: apiKey) {
+            for ep in sDetails.episodes ?? [] {
+                if let existing = allItems.first(where: { 
+                    $0.type == "episode" && 
+                    $0.parentTmdbId == season.parentTmdbId && 
+                    $0.seasonNumber == season.seasonNumber && 
+                    $0.episodeNumber == ep.episodeNumber 
+                }) {
+                    existing.overview = ep.overview
+                    existing.runtime = ep.runtime
+                    try? repository.updateWatchlistItem(existing)
+                }
+            }
+            refreshData()
+        }
+    }
+    
+    func launchStreamingApp(serviceName: String, title: String) {
+        let encodedTitle = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let sRaw = serviceName.lowercased().replacingOccurrences(of: "[\\+\\s\\.\\-' ]|plus|video", with: "", options: .regularExpression)
+        
+        // Optimized for iOS Universal Links (Handoff to Apps)
+        let urlMap: [String: String] = [
+            "netflix": "https://www.netflix.com/search?q=\(encodedTitle)",
+            "hulu": "https://www.hulu.com/search?q=\(encodedTitle)",
+            "disney": "https://www.disneyplus.com/search?q=\(encodedTitle)",
+            "amazon": "https://www.amazon.com/gp/video/search?phrase=\(encodedTitle)",
+            "prime": "https://www.amazon.com/gp/video/search?phrase=\(encodedTitle)",
+            "max": "https://www.max.com/search/\(encodedTitle)",
+            "hbo": "https://www.max.com/search/\(encodedTitle)",
+            "peacock": "https://www.peacocktv.com/watch/search?q=\(encodedTitle)",
+            "paramount": "https://www.paramountplus.com/search/?q=\(encodedTitle)",
+            "apple": "https://tv.apple.com/search?term=\(encodedTitle)",
+            "youtube": "https://www.youtube.com/results?search_query=\(encodedTitle)"
+        ]
+        
+        var targetUrlString = "https://www.google.com/search?q=watch+\(encodedTitle)+on+\(serviceName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        
+        for (key, url) in urlMap {
+            if sRaw.contains(key) {
+                targetUrlString = url
+                break
+            }
+        }
+        
+        if let url = URL(string: targetUrlString) {
+            // Universal links (https) don't strictly require canOpenURL check 
+            // and will fallback to Safari if the app is missing.
+            // Custom schemes (like peacock://) would require Info.plist entries.
+            UIApplication.shared.open(url)
+        }
+    }
+    
     // MARK: - Notifications
     
     func requestNotificationPermission() {
@@ -698,42 +907,4 @@ final class WatchlistViewModel {
         return list.isEmpty ? nil : list.joined(separator: ", ")
     }
     
-    // Re-implemented normalization from Kotlin
-    func isServiceMatch(serviceName: String, providers: String) -> Bool {
-        let pLower = providers.lowercased()
-        let sLower = serviceName.lowercased()
-        
-        // Strip everything except alphanumeric characters
-        let pRaw = pLower.components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
-        let sRaw = sLower.components(separatedBy: CharacterSet.alphanumerics.inverted).joined()
-        
-        // Normalize by removing common "noise" words
-        let noise = ["plus", "video", "tv", "premium", "withads"]
-        var cleanSRaw = sRaw
-        var cleanPRaw = pRaw
-        for word in noise {
-            cleanSRaw = cleanSRaw.replacingOccurrences(of: word, with: "")
-            cleanPRaw = cleanPRaw.replacingOccurrences(of: word, with: "")
-        }
-
-        if cleanSRaw.count > 2 && cleanPRaw.contains(cleanSRaw) { return true }
-        if cleanPRaw.count > 2 && cleanSRaw.contains(cleanPRaw) { return true }
-
-        // Bundle Logic (Disney/Hulu/ESPN)
-        let bundle = ["disney", "hulu", "espn"]
-        if bundle.contains(where: { cleanSRaw.contains($0) }) && 
-           bundle.contains(where: { cleanPRaw.contains($0) }) {
-            return true
-        }
-
-        // Live TV / Network Mappings (Android-style robust matching)
-        let liveTV = ["youtube", "fubo", "sling", "hulu", "direct"]
-        let networks = ["fox", "abc", "cbs", "nbc", "cw", "fx", "amc", "bravo", "usa", "tbs", "tnt", "discovery"]
-        
-        if liveTV.contains(where: { cleanSRaw.contains($0) }) && 
-           networks.contains(where: { cleanPRaw.contains($0) }) {
-            return true
-        }
-        return false
-    }
 }

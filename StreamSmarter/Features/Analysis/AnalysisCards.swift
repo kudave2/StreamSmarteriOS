@@ -15,11 +15,21 @@ struct FirstGlanceCard: View {
         let allActiveServices = (data.steadyServices + data.changeServices).unique(by: \.id)
         let expiringServices = allActiveServices.filter { $0.renewalDate <= tenDaysFromNow }
 
-        CardBackground {
+        VStack(alignment: .leading, spacing: 8) {
+            // Monthly Budget header matching Android screen status
+            Text("MONTHLY BUDGET: \(data.totalActiveCost.formatted(.currency(code: "USD")))")
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(.popcornYellow)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.3))
+                .cornerRadius(4)
+
+            CardBackground(backgroundColor: .retroTVGray) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("First Glance (Renewing within 10 days) - LET'S SAVE $$$")
+                Text("FIRST GLANCE (Renewing soon)")
                     .font(.subheadline.bold())
-                    .foregroundColor(.white)
+                    .foregroundColor(.red)
                 
                 if expiringServices.isEmpty {
                     Text("No services are renewing within the next 10 days.")
@@ -87,6 +97,7 @@ struct FirstGlanceCard: View {
                     }
                 }
             }
+        }
         }
     }
     
@@ -1258,8 +1269,10 @@ struct DetoxCard: View {
 // MARK: - Reusable Card Background
 struct CardBackground<Content: View>: View {
     let content: Content
+    let backgroundColor: Color
     
-    init(@ViewBuilder content: () -> Content) {
+    init(backgroundColor: Color = .retroGray, @ViewBuilder content: () -> Content) {
+        self.backgroundColor = backgroundColor
         self.content = content()
     }
     
@@ -1268,7 +1281,7 @@ struct CardBackground<Content: View>: View {
             content
         }
         .padding(16)
-        .background(Color.retroGray)
+        .background(backgroundColor)
         .cornerRadius(8)
     }
 }
