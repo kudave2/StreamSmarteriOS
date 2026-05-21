@@ -18,20 +18,26 @@ struct OnboardingView: View {
     private let pages: [OnboardingPageData] = [
         OnboardingPageData(
             title: "Welcome to StreamSmarter",
-            description: "Stop overpaying for streaming services. We help you track your watchlist and viewing habits to provide data-driven recommendations on what to keep active.",
+            description: "Stop overpaying for streaming services. We help you track your watch list and viewing habits to provide data-driven recommendations on what services to keep active.",
             icon: "play.tv.fill",
             color: .brandBlue
         ),
         OnboardingPageData(
-            title: "Your Priority Watchlist",
-            description: "Add movies and TV shows with priority levels. Focus on 'Must Watch' content and let the app help you identify which services provide the best value for your time.",
+            title: "Your Priority Watch list",
+            description: "Add movies and TV shows with priority levels. Focus on 'Must Watch' content and StreamSmarter helps you identify which services provide the best value for your time.",
             icon: "star.fill",
             color: .popcornYellow
         ),
         OnboardingPageData(
             title: "Smart Analysis",
-            description: "Our 'Brains' analyze your list to suggest a 30-day timeline. We'll tell you when it's time to binge a service before it renews or when to suspend a service you aren't using.",
+            description: "Our 'Brains' analyze your list to suggest a 30-day timeline. We'll tell you when it's time to binge shows on a service before it renews or when to suspend a service you aren't using.",
             icon: "chart.bar.xaxis",
+            color: .solidGreen
+        ),
+        OnboardingPageData(
+            title: "Your Info is YOUR Info",
+            description: "Just a reminder.  Your info is not safe with us...BECAUSE we don't consume it, store it, use it or sell it.  All the information for the app's database is self-contained on your device.  You don't even have a logon to the app, so no password info either! Your device security is also you StreamSmarter's security.",
+            icon: "lock.fill",
             color: .solidGreen
         )
     ]
@@ -45,19 +51,16 @@ struct OnboardingView: View {
             Color.black.ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Top Bar
-                HStack {
-                    Spacer()
-                    StreamSmarterLogoView(
-                        iconSize: 32,
-                        fontSize: 32,
-                        taglineSize: 10
-                    )
-                    Spacer()
-                }
-                .padding()
-
-                TabView(selection: $currentPage) {
+                TabView(selection: Binding(
+                    get: { currentPage },
+                    set: { newValue in
+                        // Allow swiping between info pages and the setup page, but block
+                        // swiping to the final instructions page to enforce validation.
+                        if newValue <= pages.count {
+                            currentPage = newValue
+                        }
+                    }
+                )) {
                     // Info Pages
                     ForEach(0..<pages.count, id: \.self) { index in
                         onboardingInfoPage(pages[index])
@@ -68,12 +71,13 @@ struct OnboardingView: View {
                     setupPage
                         .tag(pages.count)
                     
-                    // Final Instructions Page
-                    instructionPage
-                        .tag(pages.count + 1)
+                    // Final Instructions Page - only rendered when reached via button
+                    if currentPage > pages.count {
+                        instructionPage
+                            .tag(pages.count + 1)
+                    }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .always))
-                .id(currentPage)
                 
                 // Navigation Button
                 VStack(spacing: 16) {
@@ -96,6 +100,13 @@ struct OnboardingView: View {
                     } else if currentPage == pages.count {
                         Button(action: {
                             Task {
+                                // Validation: Ensure all 3 fields are provided
+                                if viewModel.mainViewingService.isEmpty || viewModel.mainViewingServiceCost.isEmpty || viewModel.mainViewingServiceCost == "0.00" || viewModel.tmdbApiKey.isEmpty {
+                                    viewModel.validationErrorMessage = "Please enter your Main Service, its Monthly Cost, and your TMDB API Key to proceed."
+                                    viewModel.showValidationError = true
+                                    return
+                                }
+                                
                                 // Ensure data is saved directly to the model context to bypass 
                                 // potential premium restrictions in the ViewModel during initial setup
                                 if let user = try? modelContext.fetch(FetchDescriptor<User>()).first {
@@ -118,7 +129,7 @@ struct OnboardingView: View {
                                 if viewModel.isValidating {
                                     ProgressView().tint(.black)
                                 } else {
-                                    Text("Continue")
+                                    Text("Verify API")
                                         .font(.headline.bold())
                                 }
                             }
@@ -180,7 +191,7 @@ struct OnboardingView: View {
             Text(page.description)
                 .font(.body)
                 .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
                 .padding(.horizontal, 40)
                 .lineSpacing(4)
         }
@@ -351,6 +362,9 @@ struct TmdbApiKeyInfoSheet: View {
                     }
                     Text("2. Go to Settings → API")
                     Text("3. Request an API key (Developer)")
+                    Text("  a. Application Name: <any name, you choose>")
+                    Text("  b. Application URL: <use any website you like. example: https://www.google.com>")
+                    Text("  c. Application Summary: <must enter something, example: Application that manages streaming services and helps make decisions on which services to use and when to save the user money.")
                     Text("4. Copy the API Key (v3 auth)")
                 }
                 .foregroundColor(Color(white: 0.8))
