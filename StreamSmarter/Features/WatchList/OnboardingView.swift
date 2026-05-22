@@ -5,6 +5,7 @@ struct OnboardingView: View {
     // MARK: - Environment & State
     @Environment(\.modelContext) private var modelContext
     @AppStorage("isOnboardingComplete") var isOnboardingComplete: Bool = false
+    @AppStorage("isDarkMode") private var isDarkMode = true
     @State private var viewModel = ProfileViewModel()
     @State private var currentPage = 0
     @FocusState private var focusedField: ProfileField?
@@ -20,25 +21,25 @@ struct OnboardingView: View {
             title: "Welcome to StreamSmarter",
             description: "Stop overpaying for streaming services. We help you track your watch list and viewing habits to provide data-driven recommendations on what services to keep active.",
             icon: "play.tv.fill",
-            color: .brandBlue
+            color: .ssSecondary
         ),
         OnboardingPageData(
             title: "Your Priority Watch list",
             description: "Add movies and TV shows with priority levels. Focus on 'Must Watch' content and StreamSmarter helps you identify which services provide the best value for your time.",
             icon: "star.fill",
-            color: .popcornYellow
+            color: .ssPrimary
         ),
         OnboardingPageData(
             title: "Smart Analysis",
             description: "Our 'Brains' analyze your list to suggest a 30-day timeline. We'll tell you when it's time to binge shows on a service before it renews or when to suspend a service you aren't using.",
             icon: "chart.bar.xaxis",
-            color: .solidGreen
+            color: .ssTertiary
         ),
         OnboardingPageData(
             title: "Your Info is YOUR Info",
             description: "Just a reminder.  Your info is not safe with us...BECAUSE we don't consume it, store it, use it or sell it.  All the information for the app's database is self-contained on your device.  You don't even have a logon to the app, so no password info either! Your device security is also you StreamSmarter's security.",
             icon: "lock.fill",
-            color: .solidGreen
+            color: .ssTertiary
         )
     ]
     
@@ -48,7 +49,7 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.ssBackground.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 TabView(selection: Binding(
@@ -94,7 +95,7 @@ struct OnboardingView: View {
                                 .foregroundColor(.black)
                                 .frame(maxWidth: .infinity)
                                 .padding()
-                                .background(Color.accentYellow)
+                                .background(Color.ssPrimary)
                                 .cornerRadius(12)
                         }
                     } else if currentPage == pages.count {
@@ -136,7 +137,7 @@ struct OnboardingView: View {
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.solidGreen)
+                            .background(Color.ssPrimary)
                             .cornerRadius(12)
                         }
                     } else {
@@ -154,7 +155,7 @@ struct OnboardingView: View {
                             .foregroundColor(.black)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.solidGreen)
+                            .background(Color.ssPrimary)
                             .cornerRadius(12)
                         }
                     }
@@ -163,6 +164,7 @@ struct OnboardingView: View {
             }
             .animation(nil, value: currentPage)
         }
+        .preferredColorScheme(isDarkMode ? .dark : .light)
         .alert("Configuration Error", isPresented: $viewModel.showValidationError) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -185,7 +187,7 @@ struct OnboardingView: View {
             
             Text(page.title)
                 .font(.title.bold())
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
                 .multilineTextAlignment(.center)
             
             Text(page.description)
@@ -201,12 +203,12 @@ struct OnboardingView: View {
         VStack(spacing: 24) {
             Image(systemName: "sparkles.tv")
                 .font(.system(size: 80))
-                .foregroundColor(.accentYellow)
+                .foregroundColor(.ssPrimary)
                 .padding(.bottom, 20)
             
             Text("You're All Set!")
                 .font(.title.bold())
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
                 .multilineTextAlignment(.center)
             
             Text("To start saving money:\n\n1. Go to **Services** and add your current subscriptions.\n2. Go to **Watchlist** to add the movies and shows you want to see.\n\nWe'll handle the analysis from there!")
@@ -224,7 +226,7 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Final Setup")
                     .font(.title.bold())
-                    .foregroundColor(.accentYellow)
+                    .foregroundColor(.ssPrimary)
                 Text("Set your preferences to get the most accurate savings analysis.")
                     .font(.subheadline)
                     .foregroundColor(.gray)
@@ -248,7 +250,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("MAIN SERVICE MONTHLY COST ($)")
                 .font(.caption.bold())
-                .foregroundColor(.brandBlue)
+                .foregroundColor(.ssSecondary)
             profileTextField(
                 placeholder: "0.00",
                 text: $viewModel.mainViewingServiceCost,
@@ -263,11 +265,11 @@ struct OnboardingView: View {
             HStack {
                 Text("TMDB API KEY")
                     .font(.caption.bold())
-                    .foregroundColor(.brandBlue)
+                    .foregroundColor(.ssSecondary)
                 Spacer()
                 Button { viewModel.showApiKeyInfo = true } label: {
                     Image(systemName: "questionmark.circle")
-                        .foregroundColor(.accentYellow)
+                        .foregroundColor(.ssPrimary)
                 }
             }
             profileTextField(
@@ -283,7 +285,7 @@ struct OnboardingView: View {
                 destination: URL(string: "https://www.themoviedb.org/settings/api")!
             )
             .font(.caption)
-            .foregroundColor(.accentYellow)
+            .foregroundColor(.ssPrimary)
         }
     }
     
@@ -291,7 +293,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("MAIN VIEWING SERVICE")
                 .font(.caption.bold())
-                .foregroundColor(.brandBlue)
+                .foregroundColor(.ssSecondary)
             Menu {
                 ForEach(mainServiceOptions, id: \.self) { option in
                     Button(option) { viewModel.mainViewingService = option }
@@ -299,12 +301,12 @@ struct OnboardingView: View {
             } label: {
                 HStack {
                     Text(viewModel.mainViewingService.isEmpty ? "Select a service" : viewModel.mainViewingService)
-                        .foregroundColor(viewModel.mainViewingService.isEmpty ? .gray : .white)
+                        .foregroundColor(viewModel.mainViewingService.isEmpty ? .gray : .ssText)
                     Spacer()
                     Image(systemName: "chevron.down").foregroundColor(.gray)
                 }
                 .padding(12)
-                .background(Color.retroGray)
+                .background(Color.ssSurface)
                 .cornerRadius(8)
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.5), lineWidth: 1.5))
             }
@@ -321,14 +323,14 @@ struct OnboardingView: View {
     ) -> some View {
         TextField(placeholder, text: text)
             .textFieldStyle(.plain)
-            .foregroundColor(.white)
+            .foregroundColor(.ssText)
             .keyboardType(keyboardType)
             .padding(12)
-            .background(Color.retroGray)
+            .background(Color.ssSurface)
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(focusedField == field ? Color.accentYellow : Color.gray.opacity(0.5), lineWidth: 1.5)
+                    .stroke(focusedField == field ? Color.ssPrimary : Color.gray.opacity(0.5), lineWidth: 1.5)
             )
             .focused($focusedField, equals: field)
     }
@@ -344,13 +346,14 @@ struct OnboardingPageData {
 // MARK: - TmdbApiKeyInfoSheet (Moved from ProfileView to be accessible)
 struct TmdbApiKeyInfoSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("isDarkMode") private var isDarkMode = true
 
     var body: some View {
         // Content identical to the one in ProfileView.swift
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text("TMDB (The Movie Database) is a free, community-built movie and TV database.")
-                    .foregroundColor(.white)
+                    .foregroundColor(.ssText)
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 0) {
@@ -367,18 +370,18 @@ struct TmdbApiKeyInfoSheet: View {
                     Text("  c. Application Summary: <must enter something, example: Application that manages streaming services and helps make decisions on which services to use and when to save the user money.")
                     Text("4. Copy the API Key (v3 auth)")
                 }
-                .foregroundColor(Color(white: 0.8))
+                .foregroundColor(.gray)
 
                 Spacer()
             }
             .padding()
-            .background(Color.black)
+            .background(Color.ssBackground)
             .navigationTitle("About TMDB API Keys")
             .navigationBarTitleDisplayMode(.inline)
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(isDarkMode ? .dark : .light)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.foregroundColor(.accentYellow)
+                    Button("Done") { dismiss() }.foregroundColor(.ssPrimary)
                 }
             }
         }

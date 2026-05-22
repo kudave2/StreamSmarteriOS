@@ -10,10 +10,11 @@ struct WatchlistView: View {
     @FocusState private var isSearchFocused: Bool
     @State private var selectedSeasonForEpisodes: WatchlistItem?
     @Namespace private var scrollSpace
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
         ZStack {
-            Color.retroTVDark.ignoresSafeArea()
+            Color.ssBackground.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Top Bar (Search and Budget Alert)
@@ -22,7 +23,7 @@ struct WatchlistView: View {
                         HStack(alignment: .center, spacing: 12) {
                             Text("Watchlist")
                                 .font(.title.bold())
-                                .foregroundColor(.brandBlue)
+                                .foregroundColor(.ssSecondary)
                             
                             Spacer()
                             
@@ -31,7 +32,7 @@ struct WatchlistView: View {
                             } label: {
                                 Image(systemName: "plus.circle")
                                     .font(.title2)
-                                    .foregroundColor(.brandBlue)
+                                    .foregroundColor(.ssSecondary)
                             }
                             
                             NavigationLink {
@@ -79,7 +80,7 @@ struct WatchlistView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
-                    .background(Color.retroTVDark)
+                    .background(Color.ssBackground)
                     
                     // Budget Alert (from Android)
                     if let budgetAlert = viewModel.budgetAlert {
@@ -96,7 +97,7 @@ struct WatchlistView: View {
                             }
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.curtainRed.opacity(0.9))
+                    .background(Color.ssTertiary.opacity(0.9))
                         }
                         .buttonStyle(.plain)
                     }
@@ -108,7 +109,7 @@ struct WatchlistView: View {
                         Text("MONTHLY BUDGET: \(viewModel.activeTotalCost.formatted(.currency(code: "USD")))")
                             .font(.system(.caption, design: .monospaced))
                             .fontWeight(.bold)
-                            .foregroundColor(.popcornYellow)
+                            .foregroundColor(.ssPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(Color.black.opacity(0.3))
@@ -144,7 +145,7 @@ struct WatchlistView: View {
                             } else {
                                 watchlistList
                                     .listStyle(.plain)
-                                    .background(Color.retroTVDark)
+                                    .background(Color.ssBackground)
                             }
                         }
                         .onChange(of: viewModel.pendingScrollItemId) { _, newId in
@@ -169,7 +170,7 @@ struct WatchlistView: View {
                 .padding(.bottom, 20)
                 .padding(.horizontal)
                 .frame(maxWidth: .infinity)
-                .background(Color.retroTVGray)
+                .background(Color.ssSurface)
             }
         }
         .animation(nil, value: viewModel.selectedTab)
@@ -184,15 +185,17 @@ struct WatchlistView: View {
                     fontSize: 24,
                     taglineSize: 8
                 )
+                .environment(\.colorScheme, .light)
             }
         }
-        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(Color(red: 253/255, green: 253/255, blue: 253/255), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.light, for: .navigationBar)
-        .background(Color.retroTVDark)
+        .background(Color.ssBackground)
         .onAppear {
             viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
         }
+        .preferredColorScheme(isDarkMode ? .dark : .light)
         .sheet(isPresented: $viewModel.showAddSheet, onDismiss: {
             viewModel.searchQuery = ""
         }) {
@@ -339,7 +342,7 @@ struct RetroSearchField: View {
                 Image(systemName: "magnifyingglass").foregroundColor(.gray)
                 TextField("Search Watchlist...", text: $searchQuery)
                     .textFieldStyle(.plain)
-                    .foregroundColor(.white)
+                    .foregroundColor(.ssText)
                     .focused($isFocused)
                     .overlay(
                         Text("Search Watchlist...")
@@ -356,7 +359,7 @@ struct RetroSearchField: View {
                 }
             }
             .padding(10)
-            .background(Color.retroTVGray)
+            .background(Color.ssSurface)
             .cornerRadius(8)
             if !searchQuery.isEmpty {
                 Button(action: { searchQuery = "" }) {
@@ -412,14 +415,14 @@ struct HierarchicalWatchlistRow: View {
             // Top Section: Title, Priority, Status Toggle
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(item.title).font(.headline).bold().foregroundColor(.white)
+                    Text(item.title).font(.headline).bold().foregroundColor(.ssText)
                     priorityChip
                     watchedOnText
                     if item.type == "tv" { remainingTimeView }
                     if let providers = item.providers, !providers.isEmpty {
                         Text(providers.uppercased())
                             .font(.system(size: 9, design: .monospaced))
-                            .foregroundColor(.lightGray)
+                            .foregroundColor(.gray)
                             .lineLimit(1)
                     }
                 }
@@ -538,7 +541,7 @@ struct HierarchicalWatchlistRow: View {
     private var priorityChip: some View {
         Text(priorityLabel.uppercased())
             .font(.system(size: 10, weight: .bold, design: .monospaced))
-            .foregroundColor(item.priority == 1 ? .curtainRed : .popcornYellow)
+            .foregroundColor(item.priority == 1 ? .ssTertiary : .ssPrimary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(Color.black.opacity(0.3))
@@ -566,8 +569,8 @@ struct HierarchicalWatchlistRow: View {
     @ViewBuilder
     private var watchedOnText: some View {
         if item.status == "Watched", let watchedOn = item.watchedOn {
-            Text("Watched on \(watchedOn)")
-                .font(.caption2).italic().foregroundColor(.white.opacity(0.6))
+            Text("Watched on \(watchedOn)").font(.caption2).italic()
+                .foregroundColor(.ssText.opacity(0.6))
         }
     }
     
@@ -577,7 +580,7 @@ struct HierarchicalWatchlistRow: View {
         if totalMins > 0 {
             Text("TOTAL REMAINING: \(totalMins / 60)H \(totalMins % 60)M")
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundColor(.screenGlow)
+                .foregroundColor(.ssSecondary)
         }
     }
     
@@ -587,7 +590,7 @@ struct HierarchicalWatchlistRow: View {
         if item.type == "tv" || item.type == "movie" { // Android allows notifications for movies too
             Button(action: { onToggleNotifications(item) }) {
                 Image(systemName: item.isFlaggedForNotifications ? "bell.fill" : "bell")
-                    .foregroundColor(item.isFlaggedForNotifications ? .screenGlow : .gray)
+                    .foregroundColor(item.isFlaggedForNotifications ? .ssSecondary : .gray)
             }
             .buttonStyle(.plain)
         }
@@ -614,10 +617,10 @@ struct HierarchicalWatchlistRow: View {
                 HStack(spacing: 4) {
                     Text(isExpanded ? "CLOSE" : (item.type == "movie" ? "DETAILS" : "SEASONS"))
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
+                        .foregroundColor(.ssText)
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 10))
-                        .foregroundColor(.white)
+                        .foregroundColor(.ssText)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -642,11 +645,11 @@ struct HierarchicalWatchlistRow: View {
     private var backgroundCardColor: some View {
         let baseColor: Color
         if item.status == "Watched" {
-            baseColor = .mutedWatchedGray
+            baseColor = .ssMutedWatched
         } else if let providers = item.providers, !providers.isEmpty {
-            baseColor = .mutedAvailableGreen
+            baseColor = .ssMutedAvailable
         } else {
-            baseColor = .mutedUnavailableYellow
+            baseColor = .ssMutedUnavailable
         }
         return baseColor.overlay(Color.yellow.opacity(currentHighlightAlpha * 0.3))
     }
@@ -693,6 +696,7 @@ struct PriorityEditSheet: View { // Moved from WatchlistView.swift
     let item: WatchlistItem
     let onSave: (Int) -> Void
     @State private var selectedPriority: Int
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     init(item: WatchlistItem, onSave: @escaping (Int) -> Void) {
         self.item = item
@@ -723,6 +727,7 @@ struct PriorityEditSheet: View { // Moved from WatchlistView.swift
                     }
                 }
             }
+            .preferredColorScheme(isDarkMode ? .dark : .light)
         }
     }
 }
@@ -739,8 +744,8 @@ struct SeasonSubCard: View { // Moved from WatchlistView.swift
         } label: {
             HStack {
                 VStack(alignment: .leading) {
-                    Text(season.title).font(.subheadline.bold()).foregroundColor(.white)
-                    Text("TAP TO VIEW EPISODES").font(.system(size: 10, design: .monospaced)).foregroundColor(.white.opacity(0.6))
+                    Text(season.title).font(.subheadline.bold()).foregroundColor(.ssText)
+                    Text("TAP TO VIEW EPISODES").font(.system(size: 10, design: .monospaced)).foregroundColor(.ssText.opacity(0.6))
                 }
                 Spacer()
                 HStack(spacing: 4) {
@@ -771,7 +776,7 @@ struct EpisodeSubCard: View { // Moved from WatchlistView.swift
             HStack {
                 Button { isExpanded.toggle(); UIImpactFeedbackGenerator(style: .light).impactOccurred() } label: {
                     HStack {
-                        Text("E\(episode.episodeNumber): \(episode.title)\(episode.runtime != nil ? " (\(episode.runtime!)m)" : "")").font(.caption).bold().foregroundColor(.white)
+                        Text("E\(episode.episodeNumber): \(episode.title)\(episode.runtime != nil ? " (\(episode.runtime!)m)" : "")").font(.caption).bold().foregroundColor(.ssText)
                         Spacer()
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plain)
@@ -803,26 +808,28 @@ struct SeasonEpisodesSheet: View { // Moved from WatchlistView.swift
     let onStatusChange: (WatchlistItem, String) -> Void
     let onDelete: (WatchlistItem) -> Void
     let onRefreshSeason: (WatchlistItem) async -> Void
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
         let episodes = allItems.filter { $0.type == "episode" && $0.parentTmdbId == season.parentTmdbId && $0.seasonNumber == season.seasonNumber }.sorted { $0.episodeNumber < $1.episodeNumber }
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 VStack(alignment: .leading) {
-                    Text(season.title.uppercased()).font(.headline.bold()).foregroundColor(.popcornYellow)
+                    Text(season.title.uppercased()).font(.headline.bold()).foregroundColor(.ssPrimary)
                     Text("EPISODE MANIFEST").font(.system(.caption, design: .monospaced)).foregroundColor(.gray)
                 }
                 Spacer()
                 Button { onDelete(season); dismiss() } label: { Image(systemName: "trash").foregroundColor(.curtainRed) }
             }.padding(.bottom, 12)
-            Divider().background(Color.white.opacity(0.1)).padding(.bottom, 12)
+            Divider().background(Color.gray.opacity(0.4)).padding(.bottom, 12)
             ScrollView { VStack(spacing: 8) { ForEach(episodes) { ep in EpisodeSubCard(episode: ep, onStatusToggle: onStatusChange, onDelete: onDelete) } } }
             Button { dismiss() } label: { 
-                Text("CLOSE").font(.system(.body, design: .monospaced)).foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 12).background(Color.retroTVGray).cornerRadius(4) 
+                Text("CLOSE").font(.system(.body, design: .monospaced)).foregroundColor(.ssText).frame(maxWidth: .infinity).padding(.vertical, 12).background(Color.ssSurface).cornerRadius(4) 
             }.padding(.top, 16)
         }
         .padding()
-        .background(Color.retroTVDark.ignoresSafeArea())
+        .background(Color.ssBackground.ignoresSafeArea())
+        .preferredColorScheme(isDarkMode ? .dark : .light)
         .task { 
             if episodes.contains(where: { $0.overview == nil || $0.runtime == nil }) { 
                 await onRefreshSeason(season) 
@@ -884,15 +891,15 @@ struct SearchResultsTab: View { // Moved from WatchlistView.swift
                             VStack(alignment: .leading) {
                                 highlightedText(text: item.title, query: searchQuery)
                                     .font(.headline)
-                                    .foregroundColor(.white)
-                                Text("\(item.type.uppercased()) • \(item.status)").font(.caption).foregroundColor(.lightGray)
+                                    .foregroundColor(.ssText)
+                                Text("\(item.type.uppercased()) • \(item.status)").font(.caption).foregroundColor(.gray)
                             }
                             Spacer()
                             Image(systemName: "chevron.right").foregroundColor(.gray)
                         }.padding(12).background(Color.white.opacity(0.05)).overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.2), lineWidth: 1)).cornerRadius(8)
                     }.buttonStyle(.plain).listRowBackground(Color.clear).listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 }
-            }.listStyle(.plain).background(Color.retroTVDark)
+            }.listStyle(.plain).background(Color.ssBackground)
         }
     }
     
@@ -906,7 +913,7 @@ struct SearchResultsTab: View { // Moved from WatchlistView.swift
             let start = AttributedString.Index(range.lowerBound, within: attributedString)
             let end = AttributedString.Index(range.upperBound, within: attributedString)
             if let start = start, let end = end {
-                attributedString[start..<end].backgroundColor = .popcornYellow.opacity(0.6)
+                attributedString[start..<end].backgroundColor = .ssPrimary.opacity(0.6)
             }
         }
         return Text(attributedString)

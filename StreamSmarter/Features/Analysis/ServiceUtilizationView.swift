@@ -5,13 +5,14 @@ struct ServiceUtilizationView: View {
     let user: User?
     let data: AnalysisResults
     let viewModel: AnalysisViewModel
+    @AppStorage("isDarkMode") private var isDarkMode = true
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 Text("High Priority Shows on Active Services")
                     .font(.title2.bold())
-                    .foregroundColor(.accentYellow)
+                    .foregroundColor(.ssPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 let activeServices = (data.steadyServices + data.changeServices).unique(by: \.id).sorted(by: { $0.name < $1.name })
@@ -38,6 +39,10 @@ struct ServiceUtilizationView: View {
         }
         .navigationTitle("High Priority Active")
         .navigationBarTitleDisplayMode(.inline)
-        .background(Color.black.ignoresSafeArea())
+        .background(Color.ssBackground.ignoresSafeArea())
+        .toolbarBackground(Color.ssBackground, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(isDarkMode ? .dark : .light, for: .navigationBar)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
     }
 }

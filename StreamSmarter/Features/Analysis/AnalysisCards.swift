@@ -19,13 +19,13 @@ struct FirstGlanceCard: View {
             // Monthly Budget header matching Android screen status
             Text("MONTHLY BUDGET: \(data.totalActiveCost.formatted(.currency(code: "USD")))")
                 .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.popcornYellow)
+                .foregroundColor(.ssPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
                 .background(Color.black.opacity(0.3))
                 .cornerRadius(4)
 
-            CardBackground(backgroundColor: .retroTVGray) {
+            CardBackground(backgroundColor: .ssSurface) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("FIRST GLANCE (Renewing soon)")
                     .font(.subheadline.bold())
@@ -44,14 +44,14 @@ struct FirstGlanceCard: View {
                         LegendItem(color: .green, text: "Utilized")
                     }
 
-                    Divider().background(Color.white.opacity(0.2))
+                    Divider().background(Color.ssText.opacity(0.2))
 
                     // Table Header
                     HStack {
-                        Text("Service").font(.caption.bold()).foregroundColor(.popcornYellow).frame(maxWidth: .infinity, alignment: .leading)
-                        Text("Cost").font(.caption.bold()).foregroundColor(.popcornYellow).frame(width: 60, alignment: .trailing)
-                        Text("Watched").font(.caption.bold()).foregroundColor(.popcornYellow).frame(width: 60, alignment: .trailing)
-                        Text("Ready").font(.caption.bold()).foregroundColor(.popcornYellow).frame(width: 60, alignment: .trailing)
+                        Text("Service").font(.caption.bold()).foregroundColor(.ssPrimary).frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Cost").font(.caption.bold()).foregroundColor(.ssPrimary).frame(width: 60, alignment: .trailing)
+                        Text("Watched").font(.caption.bold()).foregroundColor(.ssPrimary).frame(width: 60, alignment: .trailing)
+                        Text("Ready").font(.caption.bold()).foregroundColor(.ssPrimary).frame(width: 60, alignment: .trailing)
                     }
 
                     let desiredHrs = Double(user?.streamingHoursPerMonth ?? 60)
@@ -80,14 +80,14 @@ struct FirstGlanceCard: View {
                                 
                                 if service.monthlyCost > 0 {
                                     Text(service.monthlyCost.formatted(.currency(code: "USD")))
-                                        .font(.caption).foregroundColor(.white).frame(width: 60, alignment: .trailing)
+                                        .font(.caption).foregroundColor(.ssText).frame(width: 60, alignment: .trailing)
                                 } else {
                                     Text("Mkt: \(viewModel.getProjectedCost(for: service).formatted(.currency(code: "USD")))")
                                         .font(.system(size: 8)).foregroundColor(.gray).frame(width: 60, alignment: .trailing)
                                 }
                                 
-                                Text(String(format: "%.1f h", watchedHrs)).font(.caption.bold()).foregroundColor(.popcornYellow).frame(width: 60, alignment: .trailing)
-                                Text(String(format: "%.1f h", readyHrs)).font(.caption).foregroundColor(.white).frame(width: 60, alignment: .trailing)
+                                Text(String(format: "%.1f h", watchedHrs)).font(.caption.bold()).foregroundColor(.ssPrimary).frame(width: 60, alignment: .trailing)
+                                Text(String(format: "%.1f h", readyHrs)).font(.caption).foregroundColor(.ssText).frame(width: 60, alignment: .trailing)
                             }
                             let costPerShow = watchedItems.isEmpty ? service.monthlyCost : service.monthlyCost / Double(watchedItems.count)
                             Text("Cost/show: \(costPerShow.formatted(.currency(code: "USD"))) (\(watchedItems.count))")
@@ -126,7 +126,7 @@ struct LegendItem: View {
                 .frame(width: 12, height: 12)
             Text(text)
                 .font(.caption2)
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
         }
     }
 }
@@ -148,15 +148,15 @@ struct OptimalTimelineCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Optimal 30-Day Timeline")
                     .font(.subheadline.bold())
-                    .foregroundColor(.popcornYellow)
+                    .foregroundColor(.ssPrimary)
                 Text("Optimized for up to \(subscriptionLimit) services based on your profile preference.")
                     .font(.caption2)
                     .foregroundColor(.gray)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    CostRow(label: "Total Active Monthly Cost:", value: totalActiveCost, color: .white)
+                    CostRow(label: "Total Active Monthly Cost:", value: totalActiveCost, color: .ssText)
                     CostRow(label: "Optimized Timeline Cost:", value: optimizedTimelineCost, color: .green)
-                    CostRow(label: "Potential Savings:", value: potentialSavings, color: .popcornYellow, isBold: true)
+                    CostRow(label: "Potential Savings:", value: potentialSavings, color: .ssPrimary, isBold: true)
                 }
                 .padding(.vertical, 8)
                 
@@ -170,12 +170,12 @@ struct OptimalTimelineCard: View {
                     TimelineGanttChart(timelineItems: timelineItems)
                 }
                 
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.ssText.opacity(0.2))
                 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Recommendation Summary:")
                         .font(.caption.bold())
-                        .foregroundColor(.popcornYellow)
+                        .foregroundColor(.ssPrimary)
                     
                     let timelineServiceNames = timelineItems.compactMap { $0.bestService }.unique()
                     let servicesToSuspend = data.allManagementServices.filter { service in
@@ -187,7 +187,7 @@ struct OptimalTimelineCard: View {
                     if !servicesToSuspend.isEmpty {
                         Text("Suspend these to match optimal timeline:")
                             .font(.caption2)
-                            .foregroundColor(.white)
+                            .foregroundColor(.ssText)
                         
                         ForEach(servicesToSuspend) { service in
                             HStack(spacing: 4) {
@@ -243,15 +243,15 @@ struct ProjectTimelineCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Manage/Create Your Own 30-Day Watching Timeline")
                     .font(.subheadline.bold())
-                    .foregroundColor(.popcornYellow)
+                    .foregroundColor(.ssPrimary)
                 Text("High Priority shows based on \(user?.streamingHoursPerMonth ?? 60) hrs/month. Shows don't need to be watched in specific order but watch higher priority shows first!")
                     .font(.caption2)
                     .foregroundColor(.gray)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    CostRow(label: "Total Active Monthly Cost:", value: totalActiveCost, color: .white)
+                    CostRow(label: "Total Active Monthly Cost:", value: totalActiveCost, color: .ssText)
                     CostRow(label: "Optimized Timeline Cost:", value: optimizedTimelineCost, color: .green)
-                    CostRow(label: "Potential Savings:", value: potentialSavings, color: .popcornYellow, isBold: true)
+                    CostRow(label: "Potential Savings:", value: potentialSavings, color: .ssPrimary, isBold: true)
                 }
                 .padding(.vertical, 8)
                 
@@ -265,11 +265,11 @@ struct ProjectTimelineCard: View {
                     TimelineGanttChart(timelineItems: timelineItems)
                 }
                 
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.ssText.opacity(0.2))
                 
                 Text("Choose Services:")
                     .font(.caption.bold())
-                    .foregroundColor(.popcornYellow)
+                    .foregroundColor(.ssPrimary)
                 Text("Customize selection and see how it impacts your timeline\nFor initial timeline, flashing active services should be suspended")
                     .font(.caption2)
                     .foregroundColor(.gray)
@@ -369,7 +369,7 @@ struct ServiceSelectionToggle: View {
             Text("\(service.name) (\(costDisplay))")
                 .font(.caption)
                 .lineLimit(1)
-                .foregroundColor(service.isActive ? .green : Color(red: 1.0, green: 0.8, blue: 0.8)) // #FFCCCB
+                .foregroundColor(service.isActive ? .green : .ssInactiveRed)
                 .opacity(shouldFlash ? flashOpacity : 1.0)
         }
         .contentShape(Rectangle())
@@ -398,7 +398,7 @@ struct Checkbox: View {
     
     var body: some View {
         Image(systemName: checked ? "checkmark.square.fill" : "square")
-            .foregroundColor(checked ? .popcornYellow : .gray)
+            .foregroundColor(checked ? .ssPrimary : .gray)
     }
 }
 
@@ -434,15 +434,15 @@ struct TimelineGanttChart: View {
             HStack(spacing: 0) {
                 Text("Optimal Service")
                     .font(.caption2.bold())
-                    .foregroundColor(.white)
+                    .foregroundColor(.white) // Header always white for contrast on blue
                     .frame(width: 90, alignment: .leading)
                 Text("30-Day Timeline")
                     .font(.caption2.bold())
-                    .foregroundColor(.white)
+                    .foregroundColor(.white) // Header always white for contrast on blue
                     .frame(maxWidth: .infinity)
             }
             .padding(.vertical, 4)
-            .background(Color.blue)
+            .background(Color.ssSecondary)
             
             Canvas { context, size in
                 let serviceColumnWidth: CGFloat = 90
@@ -452,10 +452,7 @@ struct TimelineGanttChart: View {
                 // Draw vertical grid lines
                 for i in 0...30 where i % 5 == 0 {
                     let x = serviceColumnWidth + CGFloat(i) * dayWidth
-                    context.stroke(Path { p in
-                        p.move(to: CGPoint(x: x, y: 0))
-                        p.addLine(to: CGPoint(x: x, y: size.height))
-                    }, with: .color(Color.white.opacity(0.1)), lineWidth: 1)
+                    context.stroke(Path { p in p.move(to: CGPoint(x: x, y: 0)); p.addLine(to: CGPoint(x: x, y: size.height)) }, with: .color(Color.ssText.opacity(0.2)), lineWidth: 1)
                 }
                 
                 let barHeight: CGFloat = 12
@@ -498,7 +495,7 @@ struct TimelineGanttChart: View {
                             if let serviceName = item.bestService {
                                 context.draw(Text(serviceName)
                                                 .font(.system(size: 10))
-                                                .foregroundColor(.popcornYellow),
+                                                .foregroundColor(.ssPrimary),
                                              at: CGPoint(x: paddingPx, y: top + barHeight / 2),
                                              anchor: .leading)
                             }
@@ -510,7 +507,7 @@ struct TimelineGanttChart: View {
                             
                             // Draw Item Title
                             let labelText = "\(item.title) (\(String(format: "%.1f", item.totalHours))h)"
-                            let textMeasurement = context.resolve(Text(labelText).font(.system(size: 9)).foregroundColor(.white))
+                            let textMeasurement = context.resolve(Text(labelText).font(.system(size: 9)).foregroundColor(.ssText))
                             let textWidth = textMeasurement.measure(in: size).width
                             
                             let textTop = top + barHeight / 2
@@ -519,15 +516,15 @@ struct TimelineGanttChart: View {
                             let leftSpace = left - serviceColumnWidth
                             
                             if rightSpace >= textWidth + paddingPx {
-                                context.draw(Text(labelText).font(.system(size: 9)).foregroundColor(.white),
+                                context.draw(Text(labelText).font(.system(size: 9)).foregroundColor(.ssText),
                                              at: CGPoint(x: right + paddingPx, y: textTop),
                                              anchor: .leading)
                             } else if leftSpace >= textWidth + paddingPx {
-                                context.draw(Text(labelText).font(.system(size: 9)).foregroundColor(.white),
+                                context.draw(Text(labelText).font(.system(size: 9)).foregroundColor(.ssText),
                                              at: CGPoint(x: left - paddingPx, y: textTop),
                                              anchor: .trailing)
                         } else {
-                                context.draw(Text(labelText).font(.system(size: 9)).foregroundColor(.white),
+                                context.draw(Text(labelText).font(.system(size: 9)).foregroundColor(.ssText),
                                              at: CGPoint(x: left + paddingPx, y: textTop),
                                              anchor: .leading)
                             }
@@ -538,7 +535,7 @@ struct TimelineGanttChart: View {
                 }
             }
             .frame(height: chartHeight)
-            .background(Color.retroGray)
+            .background(Color.ssSurface)
         }
     }
 }
@@ -585,7 +582,7 @@ struct ShowAvailabilityMatrixCard: View {
                  VStack(alignment: .leading, spacing: 12) {
                      Text("Show Availability Matrix")
                          .font(.subheadline.bold())
-                         .foregroundColor(.popcornYellow)
+                         .foregroundColor(.ssPrimary)
 
                      VStack(alignment: .leading, spacing: 0) {
                          // Header Row (Services)
@@ -598,7 +595,7 @@ struct ShowAvailabilityMatrixCard: View {
                                  
                                  Text(service.name)
                                      .font(.system(size: 8))
-                                     .foregroundColor(isMain ? .popcornYellow : .white)
+                                     .foregroundColor(isMain ? .ssPrimary : .ssText)
                                      .lineLimit(1)
                                      .fixedSize()
                                      .rotationEffect(.degrees(-90), anchor: .leading)
@@ -614,7 +611,7 @@ struct ShowAvailabilityMatrixCard: View {
                              HStack(alignment: .center, spacing: 0) {
                                  Text(show.title)
                                      .font(.system(size: 9))
-                                     .foregroundColor(show.priority == 1 ? .popcornYellow : .white)
+                                     .foregroundColor(show.priority == 1 ? .ssPrimary : .ssText)
                                      .lineLimit(1)
                                      .truncationMode(.tail)
                                      .frame(width: 100, alignment: .leading)
@@ -624,7 +621,7 @@ struct ShowAvailabilityMatrixCard: View {
                                      
                                      ZStack {
                                          Circle()
-                                             .fill(isAvailable ? Color.brandBlue : Color.white.opacity(0.15))
+                                             .fill(isAvailable ? Color.ssSecondary : Color.gray.opacity(0.15))
                                              .frame(width: isAvailable ? 6 : 2, height: isAvailable ? 6 : 2)
                                      }
                                      .frame(width: 13, height: 20)
@@ -660,7 +657,7 @@ struct HighPriorityServiceCard: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(service.name)
                                 .font(.headline.bold())
-                                .foregroundColor(.white)
+                                .foregroundColor(.ssText)
                             
                             Text("Renews: \(service.renewalDate, style: .date)")
                                 .font(.caption2)
@@ -672,14 +669,14 @@ struct HighPriorityServiceCard: View {
                         }
                         Spacer()
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .foregroundColor(.white)
+                            .foregroundColor(.ssText)
                     }
                 }
                 .buttonStyle(.plain)
                 
                 if isExpanded {
                     VStack(alignment: .leading, spacing: 8) {
-                        Divider().background(Color.white.opacity(0.2))
+                        Divider().background(Color.ssText.opacity(0.2))
                         
                         // Movies Section
                         let movies = items.filter { $0.type == "movie" }
@@ -687,7 +684,7 @@ struct HighPriorityServiceCard: View {
                             HStack {
                                 Text("• \(movie.title) (Movie)")
                                     .font(.caption)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.ssText)
                                 Spacer()
                                 Text(viewModel.formatDuration(movie.runtime ?? 0))
                                     .font(.caption2)
@@ -728,7 +725,7 @@ struct HighPriorityShowSection: View {
                 HStack {
                     Text("• \(showTitle)")
                         .font(.caption.bold())
-                        .foregroundColor(.popcornYellow)
+                        .foregroundColor(.ssPrimary)
                     Text("(\(viewModel.formatDuration(totalDuration)))")
                         .font(.system(size: 10))
                         .foregroundColor(.gray)
@@ -774,7 +771,7 @@ struct HighPrioritySeasonSection: View {
                     Text("\(ep.runtime ?? 0)m")
                 }
                 .font(.system(size: 9))
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
                 .padding(.leading, 8)
             }
         }
@@ -799,7 +796,7 @@ struct RecentWatchAuditCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Recent Watch Audit (Last 15)")
                         .font(.subheadline.bold())
-                        .foregroundColor(.popcornYellow)
+                        .foregroundColor(.ssPrimary)
                     
                     if hasLowPriority {
                         Text("Note: Focus on High Priority (1-2) shows first or adjust show priorities.")
@@ -815,7 +812,7 @@ struct RecentWatchAuditCard: View {
                             HStack {
                                 Text("• \(displayTitle)")
                                     .font(.caption)
-                                    .foregroundColor(isLowPriority ? .red : .white)
+                                    .foregroundColor(isLowPriority ? .red : .ssText)
                                     .lineLimit(1)
                                 Spacer()
                                 Text("Pri: \(item.priority)")
@@ -848,22 +845,22 @@ struct ServiceHistoryCard: View {
                 Button { withAnimation { isExpanded.toggle() } } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(service.name).font(.headline.bold()).foregroundColor(.white)
+                            Text(service.name).font(.headline.bold()).foregroundColor(.ssText)
                             Text("Total Time: \(viewModel.formatDuration(totalMinutes)) (\(items.count) items)")
-                                .font(.caption).foregroundColor(.popcornYellow)
+                                .font(.caption).foregroundColor(.ssPrimary)
                         }
                         Spacer()
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down").foregroundColor(.white)
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down").foregroundColor(.ssText)
                     }
                 }.buttonStyle(.plain)
                 
                 if isExpanded {
-                    Divider().background(Color.white.opacity(0.2))
+                    Divider().background(Color.ssText.opacity(0.2))
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(items) { item in
                             HStack {
                                 Text("• \(viewModel.getDisplayTitle(for: item, in: watchlist))")
-                                    .font(.caption).foregroundColor(.white).lineLimit(1)
+                                    .font(.caption).foregroundColor(.ssText).lineLimit(1)
                                 Spacer()
                                 Text("\(item.runtime ?? 0)m").font(.caption2).foregroundColor(.gray)
                             }
@@ -880,25 +877,26 @@ struct MonthlyHistoryTableCard: View {
     let watchlist: [WatchlistItem]
     let viewModel: AnalysisViewModel
     @State private var selectedMonth: MonthHistory?
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
         CardBackground {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Month").font(.caption.bold()).foregroundColor(.popcornYellow).frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Hours Watched").font(.caption.bold()).foregroundColor(.popcornYellow).frame(width: 100, alignment: .trailing)
+                    Text("Month").font(.caption.bold()).foregroundColor(.ssPrimary).frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Hours Watched").font(.caption.bold()).foregroundColor(.ssPrimary).frame(width: 100, alignment: .trailing)
                 }
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.ssText.opacity(0.2))
                 
                 ForEach(monthlyHistory) { month in
                     Button { selectedMonth = month } label: {
                         HStack {
                             Text("\(month.monthName) \(String(month.year))")
-                                .font(.caption).foregroundColor(.white)
+                                .font(.caption).foregroundColor(.ssText)
                             Spacer()
                             let hrs = Double(month.items.reduce(0) { $0 + ($1.runtime ?? 0) }) / 60.0
                             Text(String(format: "%.1f hrs", hrs))
-                                .font(.caption).foregroundColor(.white)
+                                .font(.caption).foregroundColor(.ssText)
                         }
                         .padding(.vertical, 4)
                     }.buttonStyle(.plain)
@@ -908,7 +906,7 @@ struct MonthlyHistoryTableCard: View {
         .sheet(item: $selectedMonth) { month in
             NavigationStack {
                 List {
-                    Section(header: Text("Watched Items").foregroundColor(.popcornYellow)) {
+                    Section(header: Text("Watched Items").foregroundColor(.ssPrimary)) {
                         ForEach(month.items) { item in
                             HStack {
                                 Text(viewModel.getDisplayTitle(for: item, in: watchlist))
@@ -929,7 +927,7 @@ struct MonthlyHistoryTableCard: View {
                     }
                 }
             }
-            .preferredColorScheme(.dark)
+            .preferredColorScheme(isDarkMode ? .dark : .light)
             .presentationDetents([.medium, .large])
         }
     }
@@ -945,7 +943,7 @@ struct MainServiceDuplicatesCard: View {
         CardBackground {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Available on Main Service & Others")
-                    .font(.subheadline.bold()).foregroundColor(.popcornYellow)
+                    .font(.subheadline.bold()).foregroundColor(.ssPrimary)
                 
                 if let mainName = user?.mainViewingService, !mainName.isEmpty {
                     let allOtherServices = viewModel.services.filter { !viewModel.isServiceMatch(serviceName: mainName, providers: $0.name) }
@@ -969,7 +967,7 @@ struct MainServiceDuplicatesCard: View {
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(duplicates, id: \.0.id) { (item, others) in
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("• \(item.title)").font(.caption).bold().foregroundColor(.white)
+                                    Text("• \(item.title)").font(.caption).bold().foregroundColor(.ssText)
                                     Text("  Also on: \(others.map { $0.name }.joined(separator: ", "))")
                                         .font(.system(size: 9)).foregroundColor(.cyan)
                                 }
@@ -993,7 +991,7 @@ struct MultipleActiveServiceShowsCard: View {
         CardBackground {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Shows on Multiple Active Services")
-                    .font(.subheadline.bold()).foregroundColor(.popcornYellow)
+                    .font(.subheadline.bold()).foregroundColor(.ssPrimary)
                 
                 if data.multipleActiveServiceShows.isEmpty {
                     Text("No shows found that are currently 'Ready' and available on more than one active streaming service. This section helps identify potential redundancies in your active subscriptions.")
@@ -1005,7 +1003,7 @@ struct MultipleActiveServiceShowsCard: View {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(data.multipleActiveServiceShows, id: \.0.id) { (item, services) in
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("• \(item.title)").font(.caption).bold().foregroundColor(.white)
+                                Text("• \(item.title)").font(.caption).bold().foregroundColor(.ssText)
                                 Text("  Available on: \(services.map { $0.name }.joined(separator: ", "))")
                                     .font(.system(size: 9)).foregroundColor(.cyan)
                             }
@@ -1024,8 +1022,8 @@ struct DuplicateShowCard: View {
     var body: some View {
         CardBackground {
             VStack(alignment: .leading, spacing: 4) {
-                Text(showTitle).font(.caption.bold()).foregroundColor(.white)
-                Text("Available on multiple active services:").font(.system(size: 9)).foregroundColor(.popcornYellow)
+                Text(showTitle).font(.caption.bold()).foregroundColor(.ssText)
+                Text("Available on multiple active services:").font(.system(size: 9)).foregroundColor(.ssPrimary)
                 Text("• \(providerList)").font(.system(size: 9)).foregroundColor(.gray)
             }
         }
@@ -1047,9 +1045,9 @@ struct SummaryCard: View {
                     .foregroundColor(.green)
                 Text("(Make no services switches at this time.)")
                     .font(.caption2)
-                    .foregroundColor(.white)
+                    .foregroundColor(.ssText)
                 
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.ssText.opacity(0.2))
                 
                 let streamingHoursLimit = user?.streamingHoursPerMonth ?? 60
                 let totalReadyHours = Double(data.totalReadyMinutes) / 60.0
@@ -1057,14 +1055,14 @@ struct SummaryCard: View {
                 if totalReadyHours >= Double(streamingHoursLimit) {
                     Text("There are plenty of high priority shows to watch on active services over the next month based on your streaming hours per month (\(streamingHoursLimit) hrs) and your high priority shows Ready to watch. Suspend services beyond your set hours per month since you won't get to them.")
                         .font(.caption)
-                        .foregroundColor(.white)
+                        .foregroundColor(.ssText)
                 } else {
                     Text("Not enough high priority shows on the watch list for currently active services (\(String(format: "%.1f", totalReadyHours)) hrs found vs \(streamingHoursLimit) hrs desired). You might want to add more high priority shows or update existing shows to watch to priority 1 or 2. OR CONSIDER A CHANGE OR SUSPEND A SERVICE.")
                         .font(.caption)
-                        .foregroundColor(.popcornYellow)
+                        .foregroundColor(.ssPrimary)
                 }
                 
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.ssText.opacity(0.2))
                 
                 let displayedServices = data.allManagementServices.filter { !$0.name.contains("(Main Service)") }
                 
@@ -1072,9 +1070,9 @@ struct SummaryCard: View {
                     Text("No services meeting criteria.").font(.caption).foregroundColor(.gray)
                 } else {
                     HStack {
-                        Text("Service").font(.caption.bold()).foregroundColor(.popcornYellow).frame(maxWidth: .infinity, alignment: .leading)
-                        Text("Watched").font(.caption.bold()).foregroundColor(.popcornYellow).frame(width: 60, alignment: .trailing)
-                        Text("Ready").font(.caption.bold()).foregroundColor(.popcornYellow).frame(width: 60, alignment: .trailing)
+                        Text("Service").font(.caption.bold()).foregroundColor(.ssPrimary).frame(maxWidth: .infinity, alignment: .leading)
+                        Text("Watched").font(.caption.bold()).foregroundColor(.ssPrimary).frame(width: 60, alignment: .trailing)
+                        Text("Ready").font(.caption.bold()).foregroundColor(.ssPrimary).frame(width: 60, alignment: .trailing)
                     }
                     
                     ForEach(sortServicesByReadyTime(displayedServices)) { service in
@@ -1082,9 +1080,9 @@ struct SummaryCard: View {
                         let readyMinutes = (data.bingeByService[service] ?? []).reduce(0) { $0 + ($1.runtime ?? 0) } + (data.regularPriorityByService[service] ?? []).reduce(0) { $0 + ($1.runtime ?? 0) }
                         
                         HStack {
-                            Text(service.name).font(.caption).foregroundColor(.white).frame(maxWidth: .infinity, alignment: .leading)
-                            Text(String(format: "%.1f hrs", Double(watchedMinutes) / 60.0)).font(.caption).foregroundColor(.white).frame(width: 60, alignment: .trailing)
-                            Text(String(format: "%.1f hrs", Double(readyMinutes) / 60.0)).font(.caption).foregroundColor(.white).frame(width: 60, alignment: .trailing)
+                            Text(service.name).font(.caption).foregroundColor(.ssText).frame(maxWidth: .infinity, alignment: .leading)
+                            Text(String(format: "%.1f hrs", Double(watchedMinutes) / 60.0)).font(.caption).foregroundColor(.ssText).frame(width: 60, alignment: .trailing)
+                            Text(String(format: "%.1f hrs", Double(readyMinutes) / 60.0)).font(.caption).foregroundColor(.ssText).frame(width: 60, alignment: .trailing)
                         }
                     }
                 }
@@ -1116,12 +1114,12 @@ struct WindsOfChangeCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Winds of Change")
                     .font(.subheadline.bold())
-                    .foregroundColor(.popcornYellow)
+                    .foregroundColor(.ssPrimary)
                 Text("(Consider service changes)")
                     .font(.caption2)
                     .foregroundColor(.gray)
                 
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.ssText.opacity(0.2))
                 
                 if let u = user {
                     Text("Desired Concurrent Subscriptions: \(u.concurrentSubscriptionLimit)")
@@ -1136,7 +1134,7 @@ struct WindsOfChangeCard: View {
                 if !bingeServices.isEmpty {
                     Text("Recommendation:")
                         .font(.caption.bold())
-                        .foregroundColor(.white)
+                        .foregroundColor(.ssText)
                     Text("You have services expiring soon. Suspend now and finish binging:")
                         .font(.caption)
                         .foregroundColor(.gray)
@@ -1158,7 +1156,7 @@ struct WindsOfChangeCard: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("• Activate \(service.name) (\(viewModel.formatDuration(totalDuration)) ready)")
                                 .font(.caption)
-                                .foregroundColor(.white)
+                                .foregroundColor(.ssText)
                             ForEach(serviceItems.filter { $0.type == "movie" }) { movie in
                                 Text("  - \(movie.title) (Movie)")
                                     .font(.caption2)
@@ -1168,7 +1166,7 @@ struct WindsOfChangeCard: View {
                                 if let show = watchlist.first(where: { $0.type == "tv" && $0.tmdbId == showId }) {
                                     Text("  - \(show.title) (Series)")
                                         .font(.caption2)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.ssText)
                                 }
                             }
                         }
@@ -1187,7 +1185,7 @@ struct WindsOfChangeCard: View {
                     ForEach(data.changeServices) { service in
                         Text("• \(service.name) (Renews: \(service.renewalDate, style: .date))")
                             .font(.caption)
-                            .foregroundColor(.white)
+                            .foregroundColor(.ssText)
                     }
                 }
             }
@@ -1213,23 +1211,23 @@ struct DetoxCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("The Detox")
                     .font(.subheadline.bold())
-                    .foregroundColor(.white)
+                    .foregroundColor(.ssText)
                 Text("(Fresh Start, Cold turkey! Crazy, right?)")
                     .font(.caption2)
                     .foregroundColor(.gray)
                 
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.ssText.opacity(0.2))
                 
                 Text("Consider suspending all your services, temporarily. Continue binging until renewal dates. Then...watch free services, read a book, save money... Update your watch list and show priorities. And then, on your time, when you're ready, begin anew.")
                     .font(.caption)
-                    .foregroundColor(.white)
+                    .foregroundColor(.ssText)
                     .lineSpacing(2)
                 
                 let sortedFreeServices = data.freeItemsByService.keys.sorted(by: { $0.name < $1.name })
                 if !sortedFreeServices.isEmpty {
                     Text("Available on Free Services:")
                         .font(.caption.bold())
-                        .foregroundColor(.popcornYellow)
+                        .foregroundColor(.ssPrimary)
                         .padding(.top, 8)
                     
                     ForEach(sortedFreeServices) { service in
@@ -1242,7 +1240,7 @@ struct DetoxCard: View {
                                 let durationText = duration > 0 ? " (\(viewModel.formatDuration(duration)))" : ""
                                 Text("• \(item.title)\(durationText) (Pri: \(item.priority))")
                                     .font(.caption2)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.ssText)
                                     .padding(.leading, 8)
                             }
                         }
@@ -1271,7 +1269,7 @@ struct CardBackground<Content: View>: View {
     let content: Content
     let backgroundColor: Color
     
-    init(backgroundColor: Color = .retroGray, @ViewBuilder content: () -> Content) {
+    init(backgroundColor: Color = .ssSurface, @ViewBuilder content: () -> Content) {
         self.backgroundColor = backgroundColor
         self.content = content()
     }

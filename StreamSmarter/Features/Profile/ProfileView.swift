@@ -11,6 +11,7 @@ struct ProfileView: View {
     @State private var viewModel = ProfileViewModel()
     @FocusState private var focusedField: ProfileField?
     @State private var overrideToastMessage: String? = nil
+    @AppStorage("isDarkMode") private var isDarkMode = true
 
     enum ProfileField { case tmdbKey, hours, limit, cost }
 
@@ -19,7 +20,7 @@ struct ProfileView: View {
             HStack(alignment: .center, spacing: 12) {
                 Text("Profile")
                     .font(.title.bold())
-                    .foregroundColor(.brandBlue)
+                    .foregroundColor(.ssSecondary)
 
                 Spacer()
                 NavigationLink {
@@ -36,6 +37,7 @@ struct ProfileView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    themeToggleSection
                     tmdbKeySection
                     if !viewModel.isPremiumUser { goPremiumButton }
                     mainServiceSection
@@ -52,7 +54,7 @@ struct ProfileView: View {
                 .padding()
             }
         }
-        .background(Color.black)
+        .background(Color.ssBackground)
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -66,9 +68,10 @@ struct ProfileView: View {
                         viewModel.toggleOverridePremium()
                     }
                 )
+                .environment(\.colorScheme, .light)
             }
         }
-        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(Color(red: 253/255, green: 253/255, blue: 253/255), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.light, for: .navigationBar)
         .onAppear {
@@ -90,6 +93,26 @@ struct ProfileView: View {
         } message: {
             Text("Unlock premium features including main viewing service tracking and advanced analytics.")
         }
+        .preferredColorScheme(isDarkMode ? .dark : .light)
+    }
+
+    // MARK: - Theme Toggle
+
+    private var themeToggleSection: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Theme/Color")
+                    .foregroundColor(.ssText)
+                    .font(.headline)
+                Text(isDarkMode ? "Currently using Retro Dark theme" : "Currently using Retro Light theme")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            Toggle("", isOn: $isDarkMode)
+                .toggleStyle(SwitchToggleStyle(tint: .ssPrimary))
+        }
+        .padding(.bottom, 8)
     }
 
     // MARK: - TMDB Key
@@ -98,12 +121,12 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("TMDB API Key")
-                    .foregroundColor(.white)
+                    .foregroundColor(.ssText)
                     .font(.headline)
                 Spacer()
                 Button { viewModel.showApiKeyInfo = true } label: {
                     Image(systemName: "questionmark.circle")
-                        .foregroundColor(.accentYellow)
+                        .foregroundColor(.ssPrimary)
                 }
             }
             profileTextField(
@@ -119,7 +142,7 @@ struct ProfileView: View {
                 destination: URL(string: "https://www.themoviedb.org/settings/api")!
             )
             .font(.caption)
-            .foregroundColor(.accentYellow)
+            .foregroundColor(.ssPrimary)
         }
     }
 
@@ -140,7 +163,7 @@ struct ProfileView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(Color.accentYellow)
+            .background(Color.ssPrimary)
             .cornerRadius(8)
         }
     }
@@ -150,7 +173,7 @@ struct ProfileView: View {
     private var mainServiceSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Main Viewing Service")
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
                 .font(.headline)
             if viewModel.isPremiumUser {
                 Menu {
@@ -160,12 +183,12 @@ struct ProfileView: View {
                 } label: {
                     HStack {
                         Text(viewModel.mainViewingService.isEmpty ? "Select a service" : viewModel.mainViewingService)
-                            .foregroundColor(viewModel.mainViewingService.isEmpty ? .gray : .white)
+                            .foregroundColor(viewModel.mainViewingService.isEmpty ? .gray : .ssText)
                         Spacer()
                         Image(systemName: "chevron.down").foregroundColor(.gray)
                     }
                     .padding(12)
-                    .background(Color.retroGray)
+                    .background(Color.ssSurface)
                     .cornerRadius(8)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.5), lineWidth: 1.5))
                 }
@@ -180,7 +203,7 @@ struct ProfileView: View {
     private var mainServiceCostSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Main Service Monthly Cost ($)")
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
                 .font(.headline)
             if viewModel.isPremiumUser {
                 profileTextField(
@@ -200,7 +223,7 @@ struct ProfileView: View {
     private var streamingHoursSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Streaming Hours Per Month")
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
                 .font(.headline)
             profileTextField(
                 placeholder: "60",
@@ -216,7 +239,7 @@ struct ProfileView: View {
     private var concurrentLimitSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Desired Concurrent Subscriptions")
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
                 .font(.headline)
             profileTextField(
                 placeholder: "2",
@@ -238,7 +261,7 @@ struct ProfileView: View {
                 .font(.subheadline)
         }
         .padding()
-        .background(Color(white: 0.15))
+        .background(Color.ssSurface)
         .cornerRadius(8)
     }
 
@@ -260,7 +283,7 @@ struct ProfileView: View {
             }
             .frame(maxWidth: .infinity)
             .padding()
-            .background(Color.accentYellow)
+            .background(Color.ssPrimary)
             .cornerRadius(8)
         }
     }
@@ -270,7 +293,7 @@ struct ProfileView: View {
     private var backupSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Data Backup & Restore")
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
                 .font(.headline)
             HStack(spacing: 12) {
                 outlineButton(title: "Export Backup") {
@@ -296,14 +319,14 @@ struct ProfileView: View {
     ) -> some View {
         TextField(placeholder, text: text)
             .textFieldStyle(.plain)
-            .foregroundColor(.white)
+            .foregroundColor(.ssText)
             .keyboardType(keyboardType)
             .padding(12)
-            .background(Color.retroGray)
+            .background(Color.ssSurface)
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(focusedField == field ? Color.accentYellow : Color.gray.opacity(0.5), lineWidth: 1.5)
+                    .stroke(focusedField == field ? Color.ssPrimary : Color.gray.opacity(0.5), lineWidth: 1.5)
             )
             .focused($focusedField, equals: field)
     }
@@ -315,9 +338,9 @@ struct ProfileView: View {
             Image(systemName: "lock.fill").foregroundColor(.gray)
         }
         .padding(12)
-        .background(Color(white: 0.08))
+        .background(Color.ssSurface)
         .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.3), lineWidth: 1.5))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.gray.opacity(0.5), lineWidth: 1.5))
         .onTapGesture { viewModel.showPremiumDialog = true }
     }
 
@@ -326,10 +349,10 @@ struct ProfileView: View {
             Text(title)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .foregroundColor(.accentYellow)
-                .background(Color.retroGray)
+                .foregroundColor(.ssPrimary)
+                .background(Color.ssSurface)
                 .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.accentYellow, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.ssPrimary, lineWidth: 1))
         }
     }
 }

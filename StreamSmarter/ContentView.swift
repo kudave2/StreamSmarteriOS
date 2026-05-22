@@ -1,10 +1,9 @@
 import SwiftUI
 
 struct ContentView: View {
-    
-    
-    
     @State private var selectedTab = 0
+    @AppStorage("isDarkMode") private var isDarkMode = true
+
     var body: some View {
         TabView {
             // First Tab with a NavigationStack
@@ -58,8 +57,8 @@ struct ContentView: View {
             .toolbarBackground(.visible, for: .tabBar)
         }
         .animation(nil, value: selectedTab)
-        .tint(.blue)
-        .preferredColorScheme(.dark)
+        .tint(isDarkMode ? .ssPrimary : .ssSecondary)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
     }
 }
 

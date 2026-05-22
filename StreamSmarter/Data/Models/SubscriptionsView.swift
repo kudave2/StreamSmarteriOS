@@ -6,6 +6,7 @@ struct SubscriptionsView: View {
     @State private var viewModel = SubscriptionsViewModel()
     @State private var analysisViewModel = AnalysisViewModel()
     @State private var showWebsiteDialog = false
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -13,7 +14,7 @@ struct SubscriptionsView: View {
             HStack(alignment: .center, spacing: 12) {
                 Text("Subscriptions")
                     .font(.title.bold())
-                    .foregroundColor(.brandBlue)
+                    .foregroundColor(.ssSecondary)
 
                 Spacer()
                 NavigationLink {
@@ -31,7 +32,7 @@ struct SubscriptionsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Current Monthly Cost: \(viewModel.activeTotalCost.formatted(.currency(code: "USD")))")
                     .font(.headline)
-                    .foregroundColor(.accentYellow)
+                    .foregroundColor(.ssPrimary)
                 
                 Text("Any service you \"share\" or is free, set cost < $0.99 for better analysis.")
                     .font(.caption2)
@@ -87,7 +88,7 @@ struct SubscriptionsView: View {
             }
             .listStyle(.plain)
         }
-        .background(Color.black)
+        .background(Color.ssBackground)
         .navigationTitle("Subscriptions")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -98,11 +99,13 @@ struct SubscriptionsView: View {
                     fontSize: 24,
                     taglineSize: 8
                 )
+                .environment(\.colorScheme, .light)
             }
         }
-        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(Color(red: 253/255, green: 253/255, blue: 253/255), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.light, for: .navigationBar)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
         .onAppear {
             viewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
             analysisViewModel.setup(repository: StreamSmarterRepository(modelContext: modelContext))
@@ -126,7 +129,7 @@ struct SubscriptionsView: View {
                     VStack(spacing: 16) {
                         Text("Visit Website?")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(.ssText)
                         
                         Text("You've changed the status of \(service.name). Would you like to visit their site?")
                             .font(.body)
@@ -141,8 +144,8 @@ struct SubscriptionsView: View {
                                 Text("Cancel")
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
-                                    .foregroundColor(.accentYellow)
-                                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentYellow, lineWidth: 1))
+                                    .foregroundColor(.ssPrimary)
+                                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.ssPrimary, lineWidth: 1))
                             }
                             
                             Button(action: {
@@ -156,13 +159,13 @@ struct SubscriptionsView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 10)
                                     .foregroundColor(.black)
-                                    .background(Color.accentYellow)
+                                    .background(Color.ssPrimary)
                                     .cornerRadius(6)
                             }
                         }
                     }
                     .padding()
-                    .background(Color.retroGray)
+                    .background(Color.ssSurface)
                     .cornerRadius(12)
                     .padding()
                 }
@@ -242,21 +245,21 @@ struct MainServiceRow: View {
         VStack(alignment: .leading, spacing: 6) {
             // Line 1: Service title and status label
             HStack {
-                Text(name).font(.headline.bold()).foregroundColor(.white)
+                Text(name).font(.headline.bold()).foregroundColor(.ssText)
                 Spacer()
-                Text("Main Service").font(.caption).foregroundColor(.accentYellow)
+                Text("Main Service").font(.caption).foregroundColor(.ssPrimary)
             }
 
             // Line 2: Monthly cost
             Text("Monthly Cost: \(cost.formatted(.currency(code: "USD")))")
-                .font(.subheadline).foregroundColor(.accentYellow)
+                .font(.subheadline).foregroundColor(.ssPrimary)
 
-            Divider().background(Color.white.opacity(0.2))
+            Divider().background(Color.ssText.opacity(0.2))
 
             HStack {
                 Text("Available to Watch")
                     .font(.subheadline.bold())
-                    .foregroundColor(.popcornYellow)
+                    .foregroundColor(.ssPrimary)
                 Spacer()
                 if !readyItems.isEmpty {
                     Text(String(format: "Avg Priority: %.1f", avgPriority))
@@ -267,14 +270,14 @@ struct MainServiceRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(readyItems) { item in
                     HStack(alignment: .top, spacing: 6) {
-                        Text("•").foregroundColor(.white)
+                        Text("•").foregroundColor(.ssText)
                         VStack(alignment: .leading, spacing: 0) {
                             HStack {
                                 Text(item.title)
                                 Spacer()
                                 Text("Pri: \(item.priority)")
                             }
-                            .font(.caption).foregroundColor(.white)
+                            .font(.caption).foregroundColor(.ssText)
                             if let year = item.releaseYear {
                                 Text("Released: \(year)").font(.system(size: 8)).foregroundColor(.gray)
                             }
@@ -284,9 +287,9 @@ struct MainServiceRow: View {
             }
         }
         .padding()
-        .background(Color.retroGray)
+        .background(Color.ssSurface)
         .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.accentYellow, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.ssPrimary, lineWidth: 1))
     }
 }
 
@@ -344,7 +347,7 @@ struct ServiceRow: View {
             // Line 1: Service title and status
             HStack {
                 Text(service.name).font(.headline.bold())
-                    .foregroundColor(service.isActive || isSharedOrFree ? .white : .gray)
+                    .foregroundColor(service.isActive || isSharedOrFree ? .ssText : .gray)
                 Spacer()
                 Text(statusText).font(.caption).foregroundColor(statusColor)
             }
@@ -360,24 +363,24 @@ struct ServiceRow: View {
                     Text("Monthly Cost: \(service.monthlyCost.formatted(.currency(code: "USD")))")
                 }
             }
-            .font(.subheadline).foregroundColor(isNotActivated ? .gray : .accentYellow)
+            .font(.subheadline).foregroundColor(isNotActivated ? .gray : .ssPrimary)
 
             // Line 3: Start Date
             Text("Start Date: \(service.startDate, style: .date)")
-                .font(.caption).foregroundColor(.white.opacity(0.8))
+                .font(.caption).foregroundColor(.ssText.opacity(0.8))
 
             // Line 4: Renew date
             Text("Renew Date: \(service.renewalDate, style: .date)")
-                .font(.caption).foregroundColor(.brandBlue)
+                .font(.caption).foregroundColor(.ssSecondary)
 
             // Line 5: break line
-            Divider().background(Color.white.opacity(0.2))
+            Divider().background(Color.ssText.opacity(0.2))
 
             // Line 6: Available title and Avg Priority
             HStack {
                 Text("Available to Watch")
                     .font(.subheadline.bold())
-                    .foregroundColor(.popcornYellow)
+                    .foregroundColor(.ssPrimary)
                 Spacer()
                 if !readyItems.isEmpty {
                     Text(String(format: "Avg Priority: %.1f", avgPriority))
@@ -389,14 +392,14 @@ struct ServiceRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(readyItems) { item in
                     HStack(alignment: .top, spacing: 6) {
-                        Text("•").foregroundColor(.white)
+                        Text("•").foregroundColor(.ssText)
                         VStack(alignment: .leading, spacing: 0) {
                             HStack {
                                 Text(item.title)
                                 Spacer()
                                 Text("Pri: \(item.priority)")
                             }
-                            .font(.caption).foregroundColor(.white)
+                            .font(.caption).foregroundColor(.ssText)
                             if let year = item.releaseYear {
                                 Text("Released: \(year)").font(.system(size: 8)).foregroundColor(.gray)
                             }
@@ -414,15 +417,15 @@ struct ServiceRow: View {
                     .buttonStyle(.plain)
                 }
                 Button(action: onEdit) {
-                    Image(systemName: "pencil.circle").foregroundColor(.accentYellow).font(.title3)
+                    Image(systemName: "pencil.circle").foregroundColor(.ssPrimary).font(.title3)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding()
-        .background((service.isActive || isSharedOrFree) ? Color.retroGray : Color(white: 0.08))
+        .background((service.isActive || isSharedOrFree) ? Color.ssSurface : Color.ssSurface.opacity(0.5))
         .cornerRadius(8)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke((service.isActive || isSharedOrFree) ? Color.accentYellow : Color.gray.opacity(0.3), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke((service.isActive || isSharedOrFree) ? Color.ssPrimary : Color.gray.opacity(0.3), lineWidth: 1))
         .alert("Delete Service", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {

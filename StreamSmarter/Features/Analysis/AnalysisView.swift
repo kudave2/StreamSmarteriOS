@@ -5,17 +5,18 @@ struct AnalysisView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = AnalysisViewModel()
     @State private var profileViewModel = ProfileViewModel()
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color.ssBackground.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     HStack(alignment: .center, spacing: 12) {
                         Text("Analysis")
                             .font(.title.bold())
-                            .foregroundColor(.brandBlue)
+                            .foregroundColor(.ssSecondary)
                         
                         Spacer()
 
@@ -50,9 +51,10 @@ struct AnalysisView: View {
                             profileViewModel.toggleOverridePremium()
                         }
                     )
+                    .environment(\.colorScheme, .light)
                 }
             }
-            .toolbarBackground(Color.white, for: .navigationBar)
+            .toolbarBackground(Color(red: 253/255, green: 253/255, blue: 253/255), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.light, for: .navigationBar)
             .onAppear {
@@ -67,6 +69,7 @@ struct AnalysisView: View {
             } message: {
                 Text("Unlock premium features including main viewing service tracking and advanced analytics.")
             }
+            .preferredColorScheme(isDarkMode ? .dark : .light)
         }
     }
     
@@ -83,7 +86,7 @@ struct AnalysisView: View {
                     // Deep Dive Analytics Dashboard
                     Text("Deep Dive Analytics")
                         .font(.title2.bold())
-                        .foregroundColor(.accentYellow)
+                        .foregroundColor(.ssPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 10)
 
@@ -113,7 +116,7 @@ struct AnalysisView: View {
                         }
                     }
                 } else {
-                    ProgressView().tint(.accentYellow).padding(.top, 50)
+                    ProgressView().tint(.ssPrimary).padding(.top, 50)
                 }
             }
             .padding()
@@ -126,11 +129,11 @@ struct AnalysisView: View {
             
             Image(systemName: "lock.fill")
                 .font(.system(size: 60))
-                .foregroundColor(.accentYellow)
+                .foregroundColor(.ssPrimary)
             
             Text("Premium Analytics Locked")
                 .font(.title2.bold())
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
             
             Text("Unlock advanced binging timelines, service cost analysis, and data-driven recommendations to save more on streaming.")
                 .font(.body)
@@ -146,7 +149,7 @@ struct AnalysisView: View {
                     .foregroundColor(.black)
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(Color.accentYellow)
+                    .background(Color.ssPrimary)
                     .cornerRadius(12)
             }
             .padding(.horizontal, 40)
@@ -154,7 +157,7 @@ struct AnalysisView: View {
             Spacer()
             Spacer()
         }
-        .background(Color.black)
+        .background(Color.ssBackground)
     }
 }
 
@@ -169,19 +172,19 @@ struct DeepDiveCard: View {
             Image(systemName: icon)
                 .font(.title)
                 .frame(height: 32)
-                .foregroundColor(.brandBlue)
+                .foregroundColor(.ssSecondary)
             VStack(spacing: 2) {
                 Text(title)
                     .font(.subheadline.bold())
                 Text(subtitle)
                     .font(.caption2)
             }
-            .foregroundColor(.white)
+            .foregroundColor(.ssText)
             .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
-        .background(Color.retroGray)
+        .background(Color.ssSurface)
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
     }

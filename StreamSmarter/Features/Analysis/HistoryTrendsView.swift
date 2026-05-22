@@ -4,17 +4,18 @@ struct HistoryTrendsView: View {
     let user: User?
     let data: AnalysisResults
     let viewModel: AnalysisViewModel
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.ssBackground.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Standard Title Row with Help Icon
                 HStack(alignment: .center, spacing: 12) {
                     Text("History Trends")
                         .font(.title.bold())
-                        .foregroundColor(.brandBlue)
+                        .foregroundColor(.ssSecondary)
                     
                     Spacer()
 
@@ -67,8 +68,9 @@ struct HistoryTrendsView: View {
                 )
             }
         }
-        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(Color.ssBackground, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.light, for: .navigationBar)
+        .toolbarColorScheme(isDarkMode ? .dark : .light, for: .navigationBar)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
     }
 }

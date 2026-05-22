@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HelpView: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
         ScrollView {
@@ -10,12 +11,12 @@ struct HelpView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Application Purpose")
                         .font(.title2.bold())
-                        .foregroundColor(.blue)
+                        .foregroundColor(.ssSecondary)
                         .padding(.top, 2)
                     
                     Text("StreamSmarter helps you manage your streaming subscriptions effectively. By tracking your watchlist and viewing habits, the app provides data-driven recommendations on which services to keep active and which to suspend, saving you money while ensuring you always have high-priority content ready to watch.")
                         .font(.body)
-                        .foregroundColor(.black)
+                        .foregroundColor(.ssText)
                         .lineSpacing(4)
                 }
 
@@ -23,7 +24,7 @@ struct HelpView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Steps to Get Started")
                         .font(.title2.bold())
-                        .foregroundColor(.blue)
+                        .foregroundColor(.ssSecondary)
                         .padding(.vertical, 2)
 
                     helpStep(
@@ -62,21 +63,21 @@ struct HelpView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("The Goal")
                         .font(.title2.bold())
-                        .foregroundColor(.blue)
+                        .foregroundColor(.ssSecondary)
                     
                     Text("The ultimate goal is to keep your 'Active Services' aligned with your 'Priority Watchlist' while minimizing cost. Happy streaming!")
                         .font(.callout)
-                        .foregroundColor(.black)
+                        .foregroundColor(.ssText)
                         .padding(.top, 4)
                 }
             }
             .padding(.horizontal, 16)
         }
-        .background(Color.white)
+        .background(Color.ssBackground)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.white, for: .navigationBar)
+        .toolbarBackground(Color.ssBackground, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.light, for: .navigationBar)
+        .toolbarColorScheme(isDarkMode ? .dark : .light, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 StreamSmarterLogoView(
@@ -86,18 +87,19 @@ struct HelpView: View {
                 )
             }
         }
+        .preferredColorScheme(isDarkMode ? .dark : .light)
     }
 
     private func helpStep(number: Int, title: String, description: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(number). \(title)")
                 .font(.headline)
-                .foregroundColor(.black)
+                .foregroundColor(.ssText)
                 .fontWeight(.bold)
             
             Text(description)
                 .font(.subheadline)
-                .foregroundColor(.black)
+                .foregroundColor(.ssText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 8)

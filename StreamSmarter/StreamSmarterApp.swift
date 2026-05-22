@@ -4,6 +4,7 @@ import SwiftData
 @main
 struct StreamSmarterApp: App {
     @AppStorage("isOnboardingComplete") var isOnboardingComplete: Bool = false
+    @AppStorage("isDarkMode") private var isDarkMode = true
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -25,7 +26,7 @@ struct StreamSmarterApp: App {
         WindowGroup {
             if isOnboardingComplete {
                 ContentView()
-                    .preferredColorScheme(.light)
+                    .preferredColorScheme(isDarkMode ? .dark : .light)
             } else {
                 OnboardingView()
             }

@@ -5,13 +5,14 @@ struct OptimizationOptionsView: View {
     let user: User?
     let data: AnalysisResults
     let viewModel: AnalysisViewModel
+    @AppStorage("isDarkMode") private var isDarkMode = true
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 Text("Options to Consider")
                     .font(.title2.bold())
-                    .foregroundColor(.accentYellow)
+                    .foregroundColor(.ssPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
                 SummaryCard(user: user, data: data, viewModel: viewModel)
@@ -22,6 +23,10 @@ struct OptimizationOptionsView: View {
         }
         .navigationTitle("Options to Consider")
         .navigationBarTitleDisplayMode(.inline)
-        .background(Color.black.ignoresSafeArea())
+        .background(Color.ssBackground.ignoresSafeArea())
+        .toolbarBackground(Color.ssBackground, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(isDarkMode ? .dark : .light, for: .navigationBar)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
     }
 }

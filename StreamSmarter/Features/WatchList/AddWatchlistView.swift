@@ -10,11 +10,12 @@ struct AddWatchlistView: View {
     @Environment(\.dismiss) var dismiss
     @Bindable var viewModel: WatchlistViewModel
     @FocusState private var isFocused: Bool // Add FocusState here
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.retroTVDark.ignoresSafeArea()
+                Color.ssBackground.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Search Input Area
@@ -22,7 +23,7 @@ struct AddWatchlistView: View {
                         Image(systemName: "magnifyingglass").foregroundColor(.gray)
                         TextField("Search Movies & TV Shows...", text: $viewModel.searchQuery)
                             .textFieldStyle(.plain)
-                            .foregroundColor(.white)
+                            .foregroundColor(.ssText)
                             .focused($isFocused)
                             .overlay(
                                 Text("Search Movies & TV Shows...")
@@ -36,7 +37,7 @@ struct AddWatchlistView: View {
                             }
                         
                         if viewModel.isSearching {
-                            ProgressView().tint(.accentYellow)
+                            ProgressView().tint(.ssPrimary)
                         } else if !viewModel.searchQuery.isEmpty {
                             Button { viewModel.searchQuery = "" } label: {
                                 Image(systemName: "xmark.circle.fill").foregroundColor(.gray)
@@ -44,7 +45,7 @@ struct AddWatchlistView: View {
                         }
                     }
                     .padding(10)
-                    .background(Color.retroTVGray)
+                    .background(Color.ssSurface)
                     .cornerRadius(10)
                     .padding()
 
@@ -56,7 +57,7 @@ struct AddWatchlistView: View {
                                     VStack(alignment: .leading, spacing: 12) {
                                         Text("Trending Today")
                                             .font(.title3.bold())
-                                            .foregroundColor(.accentYellow)
+                                            .foregroundColor(.ssPrimary)
                                             .padding(.horizontal)
                                         
                                         ScrollView(.horizontal, showsIndicators: false) {
@@ -75,7 +76,7 @@ struct AddWatchlistView: View {
                                     VStack(alignment: .leading, spacing: 12) {
                                         Text("Popular Now")
                                             .font(.title3.bold())
-                                            .foregroundColor(.accentYellow)
+                                            .foregroundColor(.ssPrimary)
                                             .padding(.horizontal)
                                         
                                         ScrollView(.horizontal, showsIndicators: false) {
@@ -94,7 +95,7 @@ struct AddWatchlistView: View {
                                     VStack(alignment: .leading, spacing: 12) {
                                         Text("Recommended for You")
                                             .font(.title3.bold())
-                                            .foregroundColor(.accentYellow)
+                                            .foregroundColor(.ssPrimary)
                                             .padding(.horizontal)
                                         
                                         ScrollView(.horizontal, showsIndicators: false) {
@@ -110,7 +111,7 @@ struct AddWatchlistView: View {
 
                                 if viewModel.isSearching && viewModel.trendingResults.isEmpty {
                                     ProgressView("Finding suggestions...")
-                                        .tint(.accentYellow)
+                                        .tint(.ssPrimary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.top, 40)
                                 }
@@ -119,7 +120,7 @@ struct AddWatchlistView: View {
                                     VStack(spacing: 12) {
                                         Image(systemName: "Popcorn.fill")
                                             .font(.system(size: 40))
-                                            .foregroundColor(.retroGray)
+                                            .foregroundColor(.ssSurface)
                                         Text("No recommendations found.\nCheck your API key in Profile.")
                                             .multilineTextAlignment(.center)
                                             .font(.caption)
@@ -141,9 +142,9 @@ struct AddWatchlistView: View {
                     }
                 }
             }
-            .toolbarBackground(Color.white, for: .navigationBar)
+            .toolbarBackground(Color.ssBackground, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.light, for: .navigationBar)
+            .toolbarColorScheme(isDarkMode ? .dark : .light, for: .navigationBar)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -155,7 +156,7 @@ struct AddWatchlistView: View {
                 }
                 
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }.foregroundColor(.brandBlue)
+                    Button("Close") { dismiss() }.foregroundColor(.ssSecondary)
                 }
             }
             .sheet(item: $viewModel.selectedResult) { result in
@@ -175,7 +176,7 @@ struct AddWatchlistView: View {
                 Text("We couldn't reach TMDB. Please verify your API key in the Profile tab.")
             }
         }
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
     }
 }
 
@@ -206,7 +207,7 @@ struct TmdbResultCard: View {
                         AsyncImage(url: posterUrl) { image in
                             image.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
-                            Color.retroGray.overlay(Image(systemName: "tv").foregroundColor(.gray))
+                            Color.ssSurface.overlay(Image(systemName: "tv").foregroundColor(.ssText.opacity(0.3)))
                         }
                         .frame(width: 140, height: 210)
                         .cornerRadius(8)
@@ -222,7 +223,7 @@ struct TmdbResultCard: View {
                     
                     Text(displayTitle)
                         .font(.caption.bold())
-                        .foregroundColor(.white)
+                        .foregroundColor(.ssText)
                         .lineLimit(2)
                         .frame(width: 140, alignment: .leading)
                         .multilineTextAlignment(.leading)
@@ -266,7 +267,7 @@ struct TmdbResultRow: View {
                 AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w92\(result.posterPath ?? "")")) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    Color.retroGray.overlay(Image(systemName: "tv").foregroundColor(.gray))
+                    Color.ssSurface.overlay(Image(systemName: "tv").foregroundColor(.gray))
                 }
                 .frame(width: 60, height: 90)
                 .cornerRadius(4)
@@ -275,7 +276,7 @@ struct TmdbResultRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(result.title ?? result.name ?? "Unknown")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.ssText)
                         .lineLimit(1)
                     
                     let mediaType = result.mediaType ?? (result.name != nil ? "tv" : "movie")
@@ -290,17 +291,17 @@ struct TmdbResultRow: View {
                     
                     Text(mediaType == "tv" ? "TV Show" : "Movie")
                         .font(.caption2)
-                        .foregroundColor(.brandBlue)
+                        .foregroundColor(.ssSecondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: viewModel.isItemInWatchlist(tmdbId: result.id) ? "checkmark.circle.fill" : "plus.circle")
-                    .foregroundColor(viewModel.isItemInWatchlist(tmdbId: result.id) ? .green : .brandBlue)
+                    .foregroundColor(viewModel.isItemInWatchlist(tmdbId: result.id) ? .green : .ssSecondary)
                     .font(.title2)
             }
             .padding(8)
-            .background(Color.retroGray.opacity(0.5))
+            .background(Color.ssSurface.opacity(0.5))
             .cornerRadius(8)
         }
         .contentShape(Rectangle())
@@ -330,19 +331,20 @@ struct SelectionDetailSheet: View {
     @State private var selectedSeasonsAndEpisodes: [Int: Set<Int>] = [:] // Season -> Set of Episode numbers
     @State private var isLoading = true
     @State private var isAdding = false
+    @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color.ssBackground.ignoresSafeArea()
                 
                 if isLoading {
-                    ProgressView().tint(.accentYellow)
+                    ProgressView().tint(.ssPrimary)
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
                             headerSection
-                            Divider().background(Color.white.opacity(0.2))
+                            Divider().background(Color.ssText.opacity(0.2))
                             prioritySection
                             tvSelectionSection
                             Spacer(minLength: 40)
@@ -354,11 +356,15 @@ struct SelectionDetailSheet: View {
             }
             .navigationTitle("Configure Addition")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.ssBackground, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(isDarkMode ? .dark : .light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Cancel") { onComplete() }.foregroundColor(.accentYellow)
+                    Button("Cancel") { onComplete() }.foregroundColor(.ssPrimary)
                 }
             }
+            .preferredColorScheme(isDarkMode ? .dark : .light)
         }
         .onAppear {
             Task {
@@ -400,21 +406,21 @@ struct SelectionDetailSheet: View {
         HStack(alignment: .top, spacing: 16) {
             AsyncImage(url: URL(string: "https://image.tmdb.org/t/p/w154\(result.posterPath ?? "")")) { image in
                 image.resizable().aspectRatio(contentMode: .fit)
-            } placeholder: { Color.retroGray }
+            } placeholder: { Color.ssSurface }
             .frame(width: 100)
             .cornerRadius(8)
             
             VStack(alignment: .leading, spacing: 8) {
                 Text(result.title ?? result.name ?? "Unknown")
                     .font(.title3.bold())
-                    .foregroundColor(.white)
+                    .foregroundColor(.ssText)
                 
                 let mediaType = result.mediaType ?? (result.name != nil ? "tv" : "movie")
                 Text(mediaType.uppercased())
                     .font(.caption.bold())
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.brandBlue)
+                    .background(Color.ssSecondary)
                     .cornerRadius(4)
             }
         }
@@ -422,7 +428,7 @@ struct SelectionDetailSheet: View {
 
     private var prioritySection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("WATCH PRIORITY").font(.caption.bold()).foregroundColor(.popcornYellow)
+            Text("WATCH PRIORITY").font(.caption.bold()).foregroundColor(.ssPrimary)
             Picker("Priority", selection: $selectedPriority) {
                 Text("Must Watch Now").tag(1)
                 Text("Watch Soon").tag(2)
@@ -437,7 +443,7 @@ struct SelectionDetailSheet: View {
         let mediaType = result.mediaType ?? (result.name != nil ? "tv" : "movie")
         if mediaType == "tv", let details = tvDetails {
             VStack(alignment: .leading, spacing: 15) {
-                Text("ADD CONTENT").font(.caption.bold()).foregroundColor(.popcornYellow)
+                Text("ADD CONTENT").font(.caption.bold()).foregroundColor(.ssPrimary)
                 
                 Toggle(isOn: Binding(
                     get: { selectedAllSeries },
@@ -446,11 +452,11 @@ struct SelectionDetailSheet: View {
                         toggleAllSeries(details: details, newValue: newValue)
                     }
                 )) {
-                    Text("Add Entire Series").font(.headline).foregroundColor(.white)
+                    Text("Add Entire Series").font(.headline).foregroundColor(.ssText)
                 }
-                .tint(.accentYellow)
+                .tint(.ssPrimary)
                 
-                Divider().background(Color.white.opacity(0.2))
+                Divider().background(Color.gray.opacity(0.4))
                 
                 ForEach(details.seasons ?? []) { season in
                     let seasonNumber = season.seasonNumber
@@ -505,14 +511,14 @@ struct SelectionDetailSheet: View {
                 selectedAllSeries = false
             } label: {
                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .foregroundColor(isSelected ? .accentYellow : .gray)
+                    .foregroundColor(isSelected ? .ssPrimary : .gray)
                     .font(.title3)
             }
             .buttonStyle(.plain)
 
             Text("Season \(seasonNumber): \(seasonName ?? "Unknown Season")")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
 
             Spacer()
         }
@@ -534,14 +540,14 @@ struct SelectionDetailSheet: View {
                 selectedAllSeries = false
             } label: {
                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .foregroundColor(isSelected ? .brandBlue : .gray)
+                    .foregroundColor(isSelected ? .ssSecondary : .gray)
                     .padding(.trailing, 12)
             }
             .buttonStyle(.plain)
 
             Text("E\(episodeNumber): \(episodeName ?? "Unknown Episode")")
                 .font(.subheadline)
-                .foregroundColor(.white)
+                .foregroundColor(.ssText)
             
             Spacer()
         }
@@ -560,7 +566,7 @@ struct SelectionDetailSheet: View {
                 if isAdding { ProgressView().tint(.black) }
                 Text(isAdding ? "Adding..." : "Add to Watchlist").font(.headline.bold())
             }
-            .frame(maxWidth: .infinity).padding().background(Color.accentYellow).foregroundColor(.black).cornerRadius(12)
+            .frame(maxWidth: .infinity).padding().background(Color.ssPrimary).foregroundColor(.black).cornerRadius(12)
         }
         .disabled(isAdding)
     }
