@@ -75,9 +75,9 @@ struct HelpView: View {
         }
         .background(Color.ssBackground)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color.ssBackground, for: .navigationBar)
+        .toolbarBackground(Color(red: 253/255, green: 253/255, blue: 253/255), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(isDarkMode ? .dark : .light, for: .navigationBar)
+        .toolbarColorScheme(.light, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 StreamSmarterLogoView(
@@ -85,6 +85,7 @@ struct HelpView: View {
                     fontSize: 24,
                     taglineSize: 8
                 )
+                .environment(\.colorScheme, .light)
             }
         }
         .preferredColorScheme(isDarkMode ? .dark : .light)

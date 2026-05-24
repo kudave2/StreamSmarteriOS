@@ -4,11 +4,32 @@ struct ContentView: View {
     @State private var selectedTab = 0
     @AppStorage("isDarkMode") private var isDarkMode = true
 
+    // Navigation paths for each tab to enable programmatic popping to root
+    @State private var watchlistPath = NavigationPath()
+    @State private var subscriptionsPath = NavigationPath()
+    @State private var analysisPath = NavigationPath()
+    @State private var profilePath = NavigationPath()
+
     var body: some View {
-        TabView {
+        TabView(selection: Binding(
+            get: { selectedTab },
+            set: { newValue in
+                // When switching tabs, clear all paths to "back out" of sub-screens like HelpView
+                if newValue != selectedTab {
+                    watchlistPath = NavigationPath()
+                    subscriptionsPath = NavigationPath()
+                    analysisPath = NavigationPath()
+                    profilePath = NavigationPath()
+                }
+                selectedTab = newValue
+            }
+        )) {
             // First Tab with a NavigationStack
-            NavigationStack {
+            NavigationStack(path: $watchlistPath) {
                 WatchlistView()
+                    .navigationDestination(for: String.self) { value in
+                        if value == "help" { HelpView() }
+                    }
             }
             .tabItem {
                 Label("Watchlist", systemImage: "eyes")
@@ -20,8 +41,11 @@ struct ContentView: View {
             .toolbarBackground(.visible, for: .tabBar)
             
             // Second Tab (Simple Profile Placeholder)
-            NavigationStack {
+            NavigationStack(path: $subscriptionsPath) {
                 SubscriptionsView()
+                    .navigationDestination(for: String.self) { value in
+                        if value == "help" { HelpView() }
+                    }
             }
             .tabItem {
                 Label("Subscriptions", systemImage: "ticket.fill")
@@ -32,8 +56,11 @@ struct ContentView: View {
             // 2. Forces it to remain visible/opaque even when scrolling
             .toolbarBackground(.visible, for: .tabBar)
             
-            NavigationStack {
+            NavigationStack(path: $analysisPath) {
                 AnalysisView()
+                    .navigationDestination(for: String.self) { value in
+                        if value == "help" { HelpView() }
+                    }
             }
             .tabItem {
                 Label("Analysis", systemImage: "brain.fill")
@@ -44,8 +71,11 @@ struct ContentView: View {
             // 2. Forces it to remain visible/opaque even when scrolling
             .toolbarBackground(.visible, for: .tabBar)
             
-            NavigationStack {
+            NavigationStack(path: $profilePath) {
                 ProfileView()
+                    .navigationDestination(for: String.self) { value in
+                        if value == "help" { HelpView() }
+                    }
             }
             .tabItem {
                 Label("Profile", systemImage: "person.fill")

@@ -35,9 +35,7 @@ struct WatchlistView: View {
                                     .foregroundColor(.ssSecondary)
                             }
                             
-                            NavigationLink {
-                                HelpView()
-                            } label: {
+                            NavigationLink(value: "help") {
                                 Image(systemName: "questionmark.circle")
                                     .font(.title2)
                                     .foregroundColor(.red)
