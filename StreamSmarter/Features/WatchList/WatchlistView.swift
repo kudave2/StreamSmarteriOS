@@ -1,10 +1,18 @@
 import SwiftUI
 import SwiftData
 
+private extension Color {
+    /// Provides a darker green in light mode for better visibility/contrast.
+    static func adaptiveGreen(for scheme: ColorScheme) -> Color {
+        scheme == .dark ? .green : Color(red: 0, green: 0.4, blue: 0)
+    }
+}
+
 struct WatchlistView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = WatchlistViewModel()
     @State private var itemToEdit: WatchlistItem?
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showDeleteConfirmation: WatchlistItem?
     
     @FocusState private var isSearchFocused: Bool
@@ -120,7 +128,7 @@ struct WatchlistView: View {
                         Text(channelLabel(for: viewModel.selectedTab))
                             .font(.system(.caption, design: .monospaced))
                             .fontWeight(.bold)
-                            .foregroundColor(.channelActive)
+                            .foregroundColor(.adaptiveGreen(for: colorScheme))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(Color.black.opacity(0.3))
@@ -286,21 +294,21 @@ struct WatchlistView: View {
             VStack(spacing: 4) {
                 Text(label)
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    .foregroundColor(isSelected ? .channelActive : .gray)
+                    .foregroundColor(isSelected ? .adaptiveGreen(for: colorScheme) : .gray)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 2)
                     .background(
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(isSelected ? Color.channelActive.opacity(0.15) : Color.black.opacity(0.2))
+                            .fill(isSelected ? Color.adaptiveGreen(for: colorScheme).opacity(0.15) : Color.black.opacity(0.2))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 4)
-                            .stroke(isSelected ? Color.channelActive : Color.gray.opacity(0.5), lineWidth: 1)
+                            .stroke(isSelected ? Color.adaptiveGreen(for: colorScheme) : Color.gray.opacity(0.5), lineWidth: 1)
                     )
                 
                 Text(subLabel)
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(isSelected ? .channelActive : .gray)
+                    .foregroundColor(isSelected ? .adaptiveGreen(for: colorScheme) : .gray)
             }
         }
         .buttonStyle(.plain)
@@ -392,6 +400,7 @@ struct TmdbLogoView: View {
 }
 
 struct HierarchicalWatchlistRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let item: WatchlistItem
     let allItems: [WatchlistItem]
     let onStatusToggle: (WatchlistItem, String) -> Void
@@ -550,7 +559,7 @@ struct HierarchicalWatchlistRow: View {
         HStack(spacing: 4) {
             Text(item.status == "Watched" ? "WATCHED" : "READY")
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundColor(item.status == "Watched" ? .gray : .channelActive)
+                .foregroundColor(item.status == "Watched" ? .gray : .adaptiveGreen(for: colorScheme))
             
             Toggle("", isOn: Binding(
                 get: { item.status == "Watched" },
@@ -662,6 +671,7 @@ struct HierarchicalWatchlistRow: View {
 
 struct WatchOnButton: View {
     @Environment(WatchlistViewModel.self) private var viewModel
+    @Environment(\.colorScheme) private var colorScheme
     let serviceName: String
     let itemTitle: String
     
@@ -672,16 +682,16 @@ struct WatchOnButton: View {
         } label: {
             Text("WATCH ON \(serviceName.uppercased())")
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundColor(.channelActive)
+                .foregroundColor(.adaptiveGreen(for: colorScheme))
                 .padding(.horizontal, 12)
                 .frame(height: 28)
                 .background(
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.channelActive.opacity(0.1))
+                        .fill(Color.adaptiveGreen(for: colorScheme).opacity(0.1))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(Color.channelActive, lineWidth: 1)
+                        .stroke(Color.adaptiveGreen(for: colorScheme), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -730,6 +740,7 @@ struct PriorityEditSheet: View { // Moved from WatchlistView.swift
 }
 
 struct SeasonSubCard: View { // Moved from WatchlistView.swift
+    @Environment(\.colorScheme) private var colorScheme
     let season: WatchlistItem
     let allItems: [WatchlistItem]
     let onStatusToggle: (WatchlistItem, String) -> Void
@@ -746,7 +757,10 @@ struct SeasonSubCard: View { // Moved from WatchlistView.swift
                 }
                 Spacer()
                 HStack(spacing: 4) {
-                    Text(season.status == "Watched" ? "WATCHED" : "READY").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(season.status == "Watched" ? .gray : .channelActive)
+                    Text(season.status == "Watched" ? "WATCHED" : "READY")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(season.status == "Watched" ? .gray : .adaptiveGreen(for: colorScheme))
+
                     Toggle("", isOn: Binding(
                         get: { season.status == "Watched" },
                         set: { newValue in
@@ -764,6 +778,7 @@ struct SeasonSubCard: View { // Moved from WatchlistView.swift
 }
 
 struct EpisodeSubCard: View { // Moved from WatchlistView.swift
+    @Environment(\.colorScheme) private var colorScheme
     let episode: WatchlistItem
     let onStatusToggle: (WatchlistItem, String) -> Void
     let onDelete: (WatchlistItem) -> Void
@@ -778,7 +793,10 @@ struct EpisodeSubCard: View { // Moved from WatchlistView.swift
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plain)
                 HStack(spacing: 2) {
-                    Text(episode.status == "Watched" ? "WATCHED" : "READY").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundColor(episode.status == "Watched" ? .gray : .channelActive)
+                    Text(episode.status == "Watched" ? "WATCHED" : "READY")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(episode.status == "Watched" ? .gray : .adaptiveGreen(for: colorScheme))
+
                     Toggle("", isOn: Binding(
                         get: { episode.status == "Watched" },
                         set: { newValue in
@@ -846,6 +864,7 @@ struct RetroNoSignalGraphic: View { // Moved from WatchlistView.swift
 }
 
 struct RetroToggleStyle: ToggleStyle { // Moved from WatchlistView.swift
+    @Environment(\.colorScheme) private var colorScheme
     func makeBody(configuration: Configuration) -> some View {
         Button {
             withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
@@ -854,11 +873,11 @@ struct RetroToggleStyle: ToggleStyle { // Moved from WatchlistView.swift
         } label: {
             ZStack(alignment: configuration.isOn ? .trailing : .leading) {
                 Capsule()
-                    .fill(configuration.isOn ? Color.gray.opacity(0.3) : Color.channelActive.opacity(0.3))
+                    .fill(configuration.isOn ? Color.gray.opacity(0.3) : Color.adaptiveGreen(for: colorScheme).opacity(0.3))
                     .frame(width: 28, height: 14)
                 
                 Circle()
-                    .fill(configuration.isOn ? Color.gray : Color.channelActive)
+                    .fill(configuration.isOn ? Color.gray : Color.adaptiveGreen(for: colorScheme))
                     .frame(width: 12, height: 12)
                     .padding(.horizontal, 1)
             }

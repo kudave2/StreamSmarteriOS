@@ -1,8 +1,16 @@
 import SwiftUI
 import SwiftData
 
+private extension Color {
+    /// Provides a darker green in light mode for better visibility/contrast.
+    static func adaptiveGreen(for scheme: ColorScheme) -> Color {
+        scheme == .dark ? .green : Color(red: 0, green: 0.4, blue: 0)
+    }
+}
+
 // MARK: - First Glance Card
 struct FirstGlanceCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let user: User?
     let data: AnalysisResults
     let viewModel: AnalysisViewModel // To access isServiceMatch and formatDuration
@@ -41,7 +49,7 @@ struct FirstGlanceCard: View {
                     HStack(spacing: 8) {
                         LegendItem(color: .red, text: "Suspend This Service")
                         LegendItem(color: .yellow, text: "Under Utilized")
-                        LegendItem(color: .green, text: "Utilized")
+                        LegendItem(color: .adaptiveGreen(for: colorScheme), text: "Utilized")
                     }
 
                     Divider().background(Color.ssText.opacity(0.2))
@@ -111,7 +119,7 @@ struct FirstGlanceCard: View {
         
         if bestUtilization < 0.1 { return (.red, 0) }
         else if bestUtilization < 0.4 { return (.yellow, 1) }
-        else { return (.green, 2) }
+        else { return (.adaptiveGreen(for: colorScheme), 2) }
     }
 }
 
@@ -133,6 +141,7 @@ struct LegendItem: View {
 
 // MARK: - Optimal Timeline Card
 struct OptimalTimelineCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let user: User?
     let data: AnalysisResults
     let viewModel: AnalysisViewModel
@@ -155,7 +164,7 @@ struct OptimalTimelineCard: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     CostRow(label: "Total Active Monthly Cost:", value: totalActiveCost, color: .ssText)
-                    CostRow(label: "Optimized Timeline Cost:", value: optimizedTimelineCost, color: .green)
+                    CostRow(label: "Optimized Timeline Cost:", value: optimizedTimelineCost, color: .adaptiveGreen(for: colorScheme))
                     CostRow(label: "Potential Savings:", value: potentialSavings, color: .ssPrimary, isBold: true)
                 }
                 .padding(.vertical, 8)
@@ -200,7 +209,7 @@ struct OptimalTimelineCard: View {
                     } else {
                         Text("Your current active services are optimal for your priority shows.")
                             .font(.caption2)
-                            .foregroundColor(.green)
+                            .foregroundColor(.adaptiveGreen(for: colorScheme))
                     }
                 }
             }
@@ -210,6 +219,7 @@ struct OptimalTimelineCard: View {
 
 // MARK: - Project Timeline Card
 struct ProjectTimelineCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let user: User?
     let data: AnalysisResults
     let viewModel: AnalysisViewModel // To access isServiceMatch and formatDuration
@@ -250,7 +260,7 @@ struct ProjectTimelineCard: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     CostRow(label: "Total Active Monthly Cost:", value: totalActiveCost, color: .ssText)
-                    CostRow(label: "Optimized Timeline Cost:", value: optimizedTimelineCost, color: .green)
+                    CostRow(label: "Optimized Timeline Cost:", value: optimizedTimelineCost, color: .adaptiveGreen(for: colorScheme))
                     CostRow(label: "Potential Savings:", value: potentialSavings, color: .ssPrimary, isBold: true)
                 }
                 .padding(.vertical, 8)
@@ -352,6 +362,7 @@ struct ProjectTimelineCard: View {
 }
 
 struct ServiceSelectionToggle: View {
+    @Environment(\.colorScheme) private var colorScheme
     let service: StreamingService
     @Binding var isSelected: Bool
     let shouldFlash: Bool
@@ -369,7 +380,7 @@ struct ServiceSelectionToggle: View {
             Text("\(service.name) (\(costDisplay))")
                 .font(.caption)
                 .lineLimit(1)
-                .foregroundColor(service.isActive ? .green : .ssInactiveRed)
+                .foregroundColor(service.isActive ? .adaptiveGreen(for: colorScheme) : .ssInactiveRed)
                 .opacity(shouldFlash ? flashOpacity : 1.0)
         }
         .contentShape(Rectangle())
@@ -424,6 +435,7 @@ struct CostRow: View {
 }
 
 struct TimelineGanttChart: View {
+    @Environment(\.colorScheme) private var colorScheme
     let timelineItems: [TimelineItem]
     
     var body: some View {
@@ -474,7 +486,7 @@ struct TimelineGanttChart: View {
                     }()
                     
                     // Draw Priority Heading
-                    let headingColor: Color = priority == 1 ? .green : .cyan
+                    let headingColor: Color = priority == 1 ? .adaptiveGreen(for: colorScheme) : .cyan
                     context.draw(Text(priorityLabelText)
                                     .font(.system(size: 11).bold())
                                     .underline()
@@ -501,7 +513,7 @@ struct TimelineGanttChart: View {
                             }
                             
                             // Draw Bar
-                            let barColor: Color = priority == 1 ? .green.opacity(0.7) : .cyan.opacity(0.7)
+                            let barColor: Color = (priority == 1 ? Color.adaptiveGreen(for: colorScheme) : .cyan).opacity(0.7)
                             let barRect = CGRect(x: left, y: top, width: barWidth, height: barHeight)
                             context.fill(Path(roundedRect: barRect, cornerRadius: 4), with: .color(barColor))
                             
@@ -1033,6 +1045,7 @@ struct DuplicateShowCard: View {
 // MARK: - Options to Consider Cards
 
 struct SummaryCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let user: User?
     let data: AnalysisResults
     let viewModel: AnalysisViewModel
@@ -1042,7 +1055,7 @@ struct SummaryCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Steady as she goes")
                     .font(.subheadline.bold())
-                    .foregroundColor(.green)
+                    .foregroundColor(.adaptiveGreen(for: colorScheme))
                 Text("(Make no services switches at this time.)")
                     .font(.caption2)
                     .foregroundColor(.ssText)
@@ -1104,6 +1117,7 @@ struct SummaryCard: View {
 }
 
 struct WindsOfChangeCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let user: User?
     let data: AnalysisResults
     let watchlist: [WatchlistItem]
@@ -1175,7 +1189,7 @@ struct WindsOfChangeCard: View {
                 } else if bingeServices.isEmpty && data.changeServices.isEmpty {
                     Text("Your subscriptions are well-utilized!")
                         .font(.caption)
-                        .foregroundColor(.green)
+                        .foregroundColor(.adaptiveGreen(for: colorScheme))
                 }
                 
                 if !data.changeServices.isEmpty {

@@ -1,6 +1,13 @@
 import SwiftUI
 import SwiftData
 
+private extension Color {
+    /// Provides a darker green in light mode for better visibility/contrast.
+    static func adaptiveGreen(for scheme: ColorScheme) -> Color {
+        scheme == .dark ? .green : Color(red: 0, green: 0.4, blue: 0)
+    }
+}
+
 struct SubscriptionsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = SubscriptionsViewModel()
@@ -292,6 +299,7 @@ struct MainServiceRow: View {
 }
 
 struct ServiceRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     let service: StreamingService
     let watchlist: [WatchlistItem]
     let matcher: (String, String?) -> Bool
@@ -323,7 +331,7 @@ struct ServiceRow: View {
         if isSharedOrFree {
             return .orange
         }
-        return service.isActive ? .green : .red
+        return service.isActive ? .adaptiveGreen(for: colorScheme) : .red
     }
 
     private var availableItems: [WatchlistItem] {
