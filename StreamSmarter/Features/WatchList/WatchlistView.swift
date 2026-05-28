@@ -13,6 +13,7 @@ struct WatchlistView: View {
     @AppStorage("isDarkMode") private var isDarkMode = true
     
     var body: some View {
+        @Bindable var viewModel = viewModel
         ZStack {
             Color.ssBackground.ignoresSafeArea()
             
@@ -141,17 +142,20 @@ struct WatchlistView: View {
                                     }
                                 }
                             } else {
-                                watchlistList
-                                    .listStyle(.plain)
-                                    .background(Color.ssBackground)
+                                TabView(selection: $viewModel.selectedTab) {
+                                    watchlistList(items: viewModel.availableReady).tag(WatchlistTab.available)
+                                    watchlistList(items: viewModel.unavailableReady).tag(WatchlistTab.unavailable)
+                                    watchlistList(items: viewModel.watchedItems).tag(WatchlistTab.watched)
+                                }
+                                .tabViewStyle(.page(indexDisplayMode: .never))
                             }
                         }
-                        .onChange(of: viewModel.pendingScrollItemId) { _, newId in
-                            guard let id = newId else { return }
+                        .onChange(of: viewModel.pendingScrollItemId) { _, id in
+                            guard let scrollId = id else { return }
                             // Attempt scroll on next main loop pass to ensure List rows are instantiated
                             DispatchQueue.main.async {
                                 withAnimation(.easeInOut(duration: 1.2)) {
-                                    proxy.scrollTo(id, anchor: .center)
+                                    proxy.scrollTo(scrollId, anchor: .center)
                                 }
                                 viewModel.pendingScrollItemId = nil
                             }
@@ -170,6 +174,9 @@ struct WatchlistView: View {
                 .frame(maxWidth: .infinity)
                 .background(Color.ssSurface)
             }
+        }
+        .onChange(of: viewModel.selectedTab) {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
         .animation(nil, value: viewModel.selectedTab)
         .environment(viewModel)
@@ -222,32 +229,25 @@ struct WatchlistView: View {
     }
     
     @ViewBuilder
-    private var watchlistList: some View {
+    private func watchlistList(items: [WatchlistItem]) -> some View {
         List {
-            emptyStateSection
-            scrollableRowsSection
+            if items.isEmpty {
+                ContentUnavailableView(
+                    "No Items Found",
+                    systemImage: "tv.slash",
+                    description: Text("Try searching for something new or check another tab.")
+                )
+                .listRowBackground(Color.clear)
+            } else {
+                ForEach(items) { item in
+                    watchlistRow(item, isHighlighted: viewModel.highlightedItemId == item.persistentModelID)
+                        .id(item.persistentModelID)
+                }
+            }
         }
+        .listStyle(.plain)
+        .background(Color.ssBackground)
         .scrollContentBackground(.hidden) // Hides the white system list background
-    }
-    
-    @ViewBuilder
-    private var emptyStateSection: some View {
-        if viewModel.currentTabItems.isEmpty {
-            ContentUnavailableView(
-                "No Items Found",
-                systemImage: "tv.slash",
-                description: Text("Try searching for something new or check another tab.")
-            )
-            .listRowBackground(Color.clear)
-        }
-    }
-
-    @ViewBuilder
-    private var scrollableRowsSection: some View {
-        ForEach(viewModel.currentTabItems) { item in
-            watchlistRow(item, isHighlighted: viewModel.highlightedItemId == item.persistentModelID)
-                .id(item.persistentModelID)
-        }
     }
 
     @ViewBuilder
@@ -282,7 +282,6 @@ struct WatchlistView: View {
                 viewModel.searchQuery = ""
             }
             viewModel.selectedTab = tab
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } label: {
             VStack(spacing: 4) {
                 Text(label)

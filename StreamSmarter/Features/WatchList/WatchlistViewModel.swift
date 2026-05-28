@@ -5,7 +5,7 @@ import SwiftUI
 import UserNotifications
 import BackgroundTasks
 
-enum WatchlistTab {
+enum WatchlistTab: Equatable {
     case available, unavailable, watched, search
 }
 
