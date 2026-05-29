@@ -195,33 +195,72 @@ final class WatchlistViewModel {
     
     private func updateFilteredAndSortedItems() {
         let topLevel = allItems.filter { $0.type == "movie" || $0.type == "tv" }
-        
-        let filtered = debouncedSearchQuery.isEmpty ? topLevel : topLevel.filter {
-            $0.title.localizedCaseInsensitiveContains(debouncedSearchQuery)
+
+        if debouncedSearchQuery.isEmpty {
+            // Standard business logic sorting (Almost Done -> Recent -> Priority -> Alphabetical)
+            let tenDaysAgo = Date().addingTimeInterval(-10 * 24 * 60 * 60)
+            let itemsWithMetadata = topLevel.map { item -> (item: WatchlistItem, lastActivity: Date, isAlmostDone: Bool) in
+                let episodes = allItems.filter { $0.parentTmdbId == item.tmdbId && $0.type == "episode" }
+                let lastActivity = episodes.filter { $0.status == "Watched" }.compactMap { $0.watchedDate }.max() ?? .distantPast
+                let readyCount = episodes.filter { $0.status == "Ready" }.count
+                let isAlmostDone = item.type == "tv" && (1...2).contains(readyCount)
+                return (item, lastActivity, isAlmostDone)
+            }
+            
+            _filteredAndSortedItems = itemsWithMetadata.sorted { a, b in
+                if a.isAlmostDone != b.isAlmostDone { return a.isAlmostDone && !b.isAlmostDone }
+                if a.isAlmostDone { return a.item.title < b.item.title }
+                let aIsRecent = a.lastActivity > tenDaysAgo
+                let bIsRecent = b.lastActivity > tenDaysAgo
+                if aIsRecent != bIsRecent { return aIsRecent }
+                if aIsRecent { return a.lastActivity > b.lastActivity }
+                if a.item.priority != b.item.priority { return a.item.priority < b.item.priority }
+                return a.item.title < b.item.title
+            }.map { $0.item }
+        } else {
+            // Match Android search scoring for local watchlist filtering
+            let query = debouncedSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let normalizedQuery = query.replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
+            let keywords = query.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+
+            let scored: [(item: WatchlistItem, score: Int)] = topLevel.compactMap { item in
+                let rawTitle = item.title.lowercased()
+                let cleanTitle = rawTitle.replacingOccurrences(of: "[^a-z0-9\\s]", with: "", options: .regularExpression)
+                    .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                let normalizedTitle = cleanTitle.replacingOccurrences(of: " ", with: "")
+
+                let score: Int
+                if rawTitle == query { score = 0 }
+                else if rawTitle.hasPrefix(query) || cleanTitle.hasPrefix(query) { score = 1 }
+                else if cleanTitle.contains(query) || normalizedTitle.contains(normalizedQuery) { score = 2 }
+                else if keywords.allSatisfy({ rawTitle.contains($0) }) { score = 3 }
+                else if keywords.contains(where: { rawTitle.contains($0) }) { score = 4 }
+                else { score = 5 }
+
+                return score < 5 ? (item, score) : nil
+            }
+
+            _filteredAndSortedItems = scored.sorted { (a: (item: WatchlistItem, score: Int), b: (item: WatchlistItem, score: Int)) -> Bool in
+                // 1. Tier First
+                if a.score != b.score { return a.score < b.score }
+                
+                let aTitle = a.item.title.lowercased()
+                let bTitle = b.item.title.lowercased()
+                
+                // 2. Phrase match priority
+                let aContains = aTitle.contains(query)
+                let bContains = bTitle.contains(query)
+                if aContains != bContains { return aContains && !bContains }
+                
+                // 3. Shorter titles win
+                if aTitle.count != bTitle.count { return aTitle.count < bTitle.count }
+                
+                // 4. Alphabetical
+                return aTitle < bTitle
+            }.map { $0.item }
         }
         
-        let tenDaysAgo = Date().addingTimeInterval(-10 * 24 * 60 * 60 * 1000 / 1000)
-        
-        let itemsWithMetadata = filtered.map { item -> (item: WatchlistItem, lastActivity: Date, isAlmostDone: Bool) in
-            let episodes = allItems.filter { $0.parentTmdbId == item.tmdbId && $0.type == "episode" }
-            let lastActivity = episodes.filter { $0.status == "Watched" }.compactMap { $0.watchedDate }.max() ?? .distantPast
-            let readyCount = episodes.filter { $0.status == "Ready" }.count
-            let isAlmostDone = item.type == "tv" && (1...2).contains(readyCount)
-            return (item, lastActivity, isAlmostDone)
-        }
-        
-        _filteredAndSortedItems = itemsWithMetadata.sorted { a, b in
-            if a.isAlmostDone != b.isAlmostDone { return a.isAlmostDone && !b.isAlmostDone }
-            if a.isAlmostDone { return a.item.title < b.item.title }
-            let aIsRecent = a.lastActivity > tenDaysAgo
-            let bIsRecent = b.lastActivity > tenDaysAgo
-            if aIsRecent != bIsRecent { return aIsRecent }
-            if aIsRecent { return a.lastActivity > b.lastActivity }
-            if a.item.priority != b.item.priority { return a.item.priority < b.item.priority }
-            return a.item.title < b.item.title
-        }.map { $0.item }
-        
-        // Now, filter this once for each tab
+        // Update tabs based on the new results
         availableReady = _filteredAndSortedItems.filter { $0.status == "Ready" && isAvailableOnActive($0) }
         unavailableReady = _filteredAndSortedItems.filter { $0.status == "Ready" && !isAvailableOnActive($0) }
         watchedItems = _filteredAndSortedItems.filter { $0.status == "Watched" }
@@ -459,6 +498,48 @@ final class WatchlistViewModel {
         return processed
     }
 
+    private func sortTmdbResults(_ results: [TmdbSearchResult], query: String) -> [TmdbSearchResult] {
+        if query.isEmpty { return results }
+        let cleanQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedQuery = cleanQuery.replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
+        let keywords = cleanQuery.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+
+        let scored: [(item: TmdbSearchResult, score: Int)] = results.compactMap { item in
+            let rawTitle = (item.title ?? item.name ?? "").lowercased()
+            let cleanTitle = rawTitle.replacingOccurrences(of: "[^a-z0-9\\s]", with: "", options: .regularExpression)
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            let normalizedTitle = cleanTitle.replacingOccurrences(of: " ", with: "")
+
+            let score: Int
+            if rawTitle == cleanQuery { score = 0 }
+            else if rawTitle.hasPrefix(cleanQuery) || cleanTitle.hasPrefix(cleanQuery) { score = 1 }
+            else if cleanTitle.contains(cleanQuery) || normalizedTitle.contains(normalizedQuery) { score = 2 }
+            else if keywords.allSatisfy({ rawTitle.contains($0) }) { score = 3 }
+            else if keywords.contains(where: { rawTitle.contains($0) }) { score = 4 }
+            else { score = 5 }
+
+            return score < 5 ? (item, score) : nil
+        }
+
+        let sorted = scored.sorted { (a: (item: TmdbSearchResult, score: Int), b: (item: TmdbSearchResult, score: Int)) -> Bool in
+            // 1. Tier First
+            if a.score != b.score { return a.score < b.score }
+            
+            let aTitle = (a.item.title ?? a.item.name ?? "").lowercased()
+            let bTitle = (b.item.title ?? b.item.name ?? "").lowercased()
+            
+            // 2. Phrase match priority
+            let aContains = aTitle.contains(cleanQuery)
+            let bContains = bTitle.contains(cleanQuery)
+            if aContains != bContains { return aContains && !bContains }
+            
+            // 3. Shorter titles win
+            return aTitle.count < bTitle.count
+        }
+        
+        return sorted.map { $0.item }
+    }
+
     func searchTmdb(_ query: String) async {
         guard let repository, let apiKey = user?.tmdbApiKey else { return }
         
@@ -478,7 +559,7 @@ final class WatchlistViewModel {
             self.showApiKeyError = false
         }
         
-        searchResults = results
+        searchResults = sortTmdbResults(results, query: query)
         isSearching = false
     }
     
